@@ -1,4 +1,4 @@
-class Order:
+class Position:
 
     BUY: str = 'BUY'
     SELL: str = 'SELL'

@@ -1,13 +1,25 @@
+import decimal
+from Position import Position
+
 class Trade:
 
-    def __init__(self, client):
+    def __init__(self, open_position: Position, close_position: Position):
         self.client = client
+        self._open_position = open_position
+        self._close_position = close_position
 
-    def get_quotation(self, symbol: str) -> str:
-        return self.client.get_symbol_ticker(symbol=symbol)['price']
+    @property
+    def open_position(self):
+        return self._open_position
 
-    def buy_market(self):
-        pass
+    @open_position.setter
+    def open_position(self, position: Position):
+        self._open_position = position
 
-    def sell_limit(self):
-        pass
+    @property
+    def close_position(self):
+        return self._close_position
+
+    @close_position.setter
+    def close_position(self, position: Position):
+        self._close_position = position
