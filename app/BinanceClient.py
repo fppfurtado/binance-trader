@@ -1,3 +1,4 @@
+import decimal
 import MarketClient
 from binance.client import Client
 
