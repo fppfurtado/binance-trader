@@ -1,5 +1,5 @@
 from enum import Enum
 
 class TradeRole(Enum):
-    MAKER = 'Maker',
+    MAKER = 'Maker'
     TAKER = 'Taker'

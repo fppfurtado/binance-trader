@@ -1,5 +1,5 @@
 from enum import Enum
 
 class TradeSide(Enum):
-    BUY = 'BUY',
+    BUY = 'BUY'
     SELL = 'SELL'
