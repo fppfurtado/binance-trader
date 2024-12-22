@@ -1,2 +1,3 @@
 .venv
 app/test.py
+app/__pycache__
