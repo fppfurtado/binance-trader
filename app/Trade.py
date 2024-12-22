@@ -7,7 +7,6 @@ from dataclasses import dataclass
 @dataclass
 class Trade:
     time: time = time()
-    symbol: str
     price: decimal
     quantity: decimal
     role: TradeRole
@@ -16,3 +15,7 @@ class Trade:
     side: TradeSide
     feeAsset: str
     totalQuota: decimal
+
+    @property
+    def symbol(self):
+        return self.baseAsset + self.quoteAsset
