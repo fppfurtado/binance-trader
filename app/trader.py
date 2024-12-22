@@ -1,18 +1,15 @@
 import os
-from binance.client import Client
+from APIClient import BinanceClient
 from dotenv import load_dotenv
 
-def __setup_api_client():
-    load_dotenv()
+def __main():
+    load_dotenv(dotenv_path='../.env')
     API_KEY = os.environ['BINANCE_API_KEY']
     API_SECRET = os.environ['BINANCE_API_SECRET']
-    return Client(API_KEY, API_SECRET)
-
-
-def __main():
     
-    api_client = __setup_api_client()
-    print(api_client.get_server_time())
+    client = BinanceClient(API_KEY, API_SECRET)
+
+    print(client.get_system_status())
 
 if __name__ == '__main__':
     __main()
