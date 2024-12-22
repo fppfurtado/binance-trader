@@ -1,6 +1,5 @@
 import time
 import decimal
-import TradeRole, TradeSide
 from dataclasses import dataclass
 
 @dataclass
@@ -18,3 +17,11 @@ class Trade:
     @property
     def symbol(self):
         return self.base_asset + self.quote_asset
+
+class TradeRole(Enum):
+    MAKER = 'Maker'
+    TAKER = 'Taker'
+
+class TradeSide(Enum):
+    BUY = 'BUY'
+    SELL = 'SELL'
