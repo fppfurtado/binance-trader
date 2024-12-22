@@ -1,5 +1,4 @@
 import time
-import OrderType, OrderStatus
 from dataclasses import dataclass
 
 @dataclass
@@ -21,3 +20,18 @@ class Order:
     @property
     def symbol(self):
         return self.base_asset + self.quote_asset
+
+class OrderType(Enum):
+    LIMIT = 'LIMIT'
+    MARKET = 'MARKET'
+
+class OrderStatus(Enum):
+    NEW = 'NEW'
+    FILLED = 'FILLED'
+    CANCELED = 'CANCELED'
+
+class OrderTime(Enum):
+    GOOD_TIL_CANCELED = 'GTC'
+    IMMEDIATE_OR_CANCEL = 'IOC'
+    FILL_OR_KILL = 'FOK'
+    GOOD_TIL_CROSS = 'GTX'
