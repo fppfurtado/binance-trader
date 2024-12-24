@@ -1,9 +1,9 @@
 import os, time
-from APIClient import BinanceClient
+from api_client import BinanceClient
 from dotenv import load_dotenv
 from binance.client import Client
 from binance.ws.streams import ThreadedWebsocketManager
-from Indicators import ExponentialMovingAverage
+from indicators import ExponentialMovingAverage
 from history_manager import PriceHistoryManager
 
 

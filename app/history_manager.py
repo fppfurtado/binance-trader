@@ -5,7 +5,7 @@ import pandas as pd
 from typing import Deque, List
 import time
 from datetime import datetime, timedelta
-from APIClient import BaseClient
+from api_client import BaseClient
 
 class PriceHistoryManager:
     def __init__(self, client: BaseClient, socket_manager, max_length: int = 250):
