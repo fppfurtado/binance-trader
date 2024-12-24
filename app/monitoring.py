@@ -7,7 +7,7 @@ import time
 from datetime import datetime, timedelta
 from api_client import BaseClient
 
-class PriceHistoryManager:
+class PriceMonitor:
     def __init__(self, client: BaseClient, socket_manager, max_length: int = 250):
         self.client = client
         self.socket_manager = socket_manager

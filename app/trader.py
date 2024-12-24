@@ -3,8 +3,8 @@ from api_client import BinanceClient
 from dotenv import load_dotenv
 from binance.client import Client
 from binance.ws.streams import ThreadedWebsocketManager
-from indicators import ExponentialMovingAverage
-from history_manager import PriceHistoryManager
+from analysis import ExponentialMovingAverage
+from monitoring import PriceMonitor
 
 
 def __main():
@@ -15,7 +15,7 @@ def __main():
     client = BinanceClient(API_KEY, API_SECRET)
     socket_manager = ThreadedWebsocketManager(api_key=API_KEY, api_secret=API_SECRET)
 
-    price_manager = PriceHistoryManager(client, socket_manager, 100)
+    price_manager = PriceMonitor(client, socket_manager, 100)
     price_manager.start()
 
     while True:
