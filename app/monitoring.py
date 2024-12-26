@@ -12,6 +12,7 @@ class PriceMonitor:
         self.client = client
         self.socket_manager = socket_manager
         self.max_length = max_length
+        self.candles: Deque[List] = deque(maxlen=max_length)
         self.closing_prices: Deque[float] = deque(maxlen=max_length)
         self.timestamps: Deque[int] = deque(maxlen=max_length)
         self.lock = Lock()
@@ -21,29 +22,42 @@ class PriceMonitor:
         klines = self.client.get_historical_data(
             "BTCUSDT", 
             Client.KLINE_INTERVAL_1MINUTE,
-            self.closing_prices.maxlen
+            self.max_length
         )
         
         with self.lock:
-            for kline in klines[-300:]:
+            for kline in klines[-self.max_length:]:
                 self.timestamps.append(int(kline[0]))
                 self.closing_prices.append(float(kline[4]))
+                self.candles.append(kline[1:5])
 
     def process_message(self, msg: dict) -> None:
         if msg['e'] == 'kline' and msg['k']['i'] == '1m':
             timestamp = msg['k']['t']
             price = float(msg['k']['c'])
+            candle = [
+                msg['k']['o'],
+                msg['k']['c'],
+                msg['k']['h'],
+                msg['k']['l']
+            ]
             
             with self.lock:
                 if not self.timestamps or timestamp > self.timestamps[-1]:
                     self.timestamps.append(timestamp)
                     self.closing_prices.append(price)
+                    self.candles.append(candle)
                 else:
                     self.closing_prices[-1] = price
+                    self.candles[-1] = candle
 
     def get_closing_prices(self) -> List[float]:
         with self.lock:
-            return list(self.closing_prices)
+            return [candle[1] for candle in self.candles]
+            
+    def get_candles(self) -> List[List]:
+        with self.lock:
+            return list(self.candles)
 
     def start(self) -> None:
         self._initialize_history()
@@ -53,6 +67,3 @@ class PriceMonitor:
             callback=self.process_message,
             interval=Client.KLINE_INTERVAL_1MINUTE
         )
-        
-    def stop(self) -> None:
-        self.socket_manager.close()

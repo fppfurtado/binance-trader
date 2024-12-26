@@ -19,8 +19,7 @@ def __main():
     price_manager.start()
 
     while True:
-        ema = ExponentialMovingAverage.calculate(price_manager.get_closing_prices(), 7)
-        print(ema)
+        print(price_manager.get_candles())
         time.sleep(1)
 
 if __name__ == '__main__':
