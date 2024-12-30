@@ -1,25 +1,25 @@
 import os, time
-from api_client import BinanceClient
 from dotenv import load_dotenv
 from binance.client import Client
 from binance.ws.streams import ThreadedWebsocketManager
-from analysis import ExponentialMovingAverage
-from monitoring import PriceMonitor
-
+import analysis
+from market_data import BinanceClient, BinanceWebsocket
 
 def __main():
-    load_dotenv(dotenv_path='../.env')
-    API_KEY = os.environ['BINANCE_API_KEY']
-    API_SECRET = os.environ['BINANCE_API_SECRET']
+    load_dotenv(dotenv_path='../.env', override=True)
+    API_KEY = os.getenv('BINANCE_API_KEY')
+    API_SECRET = os.getenv('BINANCE_API_SECRET')
 
+    symbol = 'BTCUSDT'
     client = BinanceClient(API_KEY, API_SECRET)
     socket_manager = ThreadedWebsocketManager(api_key=API_KEY, api_secret=API_SECRET)
 
-    price_manager = PriceMonitor(client, socket_manager, 100)
-    price_manager.start()
+    candles_monitor = BinanceWebsocket(symbol, socket_manager)
+    candles_monitor.start()
 
     while True:
-        print(price_manager.get_candles())
+        support = analysis.get_support_price(client.get_historical_data(symbol, Client.KLINE_INTERVAL_1MINUTE),7)
+        print(support)
         time.sleep(1)
 
 if __name__ == '__main__':
