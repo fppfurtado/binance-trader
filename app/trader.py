@@ -1,24 +1,34 @@
 import os, time
 from dotenv import load_dotenv
-from binance.client import Client
-from binance.ws.streams import ThreadedWebsocketManager
 import analysis
-from market_data import BinanceClient, BinanceWebsocket
+from broker import BaseClient, BinanceClient
 
-def __main():
+symbol: str = None
+broker: BaseClient = None
+
+def buy():
+    pass
+
+def sell():
+    pass
+
+def __init():
     load_dotenv(dotenv_path='../.env', override=True)
     API_KEY = os.getenv('BINANCE_API_KEY')
     API_SECRET = os.getenv('BINANCE_API_SECRET')
+    
+    global symbol
+    symbol = input('Informe o Ativo a ser operado: ')
 
-    symbol = 'BTCUSDT'
-    client = BinanceClient(API_KEY, API_SECRET)
-    socket_manager = ThreadedWebsocketManager(api_key=API_KEY, api_secret=API_SECRET)
+    global broker
+    broker = BinanceClient(API_KEY, API_SECRET, symbol)
 
-    candles_monitor = BinanceWebsocket(symbol, socket_manager)
-    candles_monitor.start()
+def __main():
 
+    init()
+    
     while True:
-        support = analysis.get_support_price(client.get_historical_data(symbol, Client.KLINE_INTERVAL_1MINUTE),7)
+        support = analysis.get_support_price(broker.get_historical_data(symbol))
         print(support)
         time.sleep(1)
 
