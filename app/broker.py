@@ -28,6 +28,9 @@ class BaseClient(Protocol):
     def get_candles(self) -> List[List]:
         pass
 
+    def get_position(self, symbol: str):
+        pass
+
 class BinanceClient(BaseClient):
     def __init__(self, api_key, api_secret, symbol: str, candles_window: int = 250):
         self.client = Client(api_key, api_secret)
