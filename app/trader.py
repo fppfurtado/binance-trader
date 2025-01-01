@@ -25,9 +25,9 @@ def __init():
 
 def __main():
 
-    init()
+    __init()
     
-    while True:
+    while broker is not None:
         support = analysis.get_support_price(broker.get_historical_data(symbol))
         print(support)
         time.sleep(1)
