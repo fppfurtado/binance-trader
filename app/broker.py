@@ -1,4 +1,5 @@
 import decimal
+import pandas as pd
 from typing import Protocol, Deque, List, Tuple
 from binance.client import Client
 from collections import deque
@@ -55,7 +56,22 @@ class BinanceClient(BaseClient):
         return self.client.get_symbol_ticker(symbol=symbol)
 
     def get_historical_data(self, symbol: str, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit:int = 50):
-        return self.client.get_historical_klines(symbol=self.symbol, interval=interval, limit=limit)
+        candles = self.client.get_historical_klines(symbol=self.symbol, interval=interval, limit=limit)
+        df = pd.DataFrame(
+            candles, 
+            columns=[
+                'timestamp', 'open', 'high', 'low', 'close',
+                'volume', 'close_time', 'quote_volume', 'trades',
+                'taker_buy_base', 'taker_buy_quote', 'ignore'
+            ]
+        )
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df.set_index('timestamp', inplace=True)
+
+        for col in ['open', 'high', 'low', 'close', 'volume']:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        return df
 
     def _process_kline_message(self, msg: dict) -> None:
         if msg['e'] == 'kline' and msg['k']['i'] == '1m':
