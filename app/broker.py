@@ -20,7 +20,7 @@ class BaseClient(Protocol):
     def get_current_price(self, symbol: str) -> decimal:
         pass
 
-    def get_historical_data(self, symbol: str, interval: str, period:int) -> []:
+    def get_historical_data(self, symbol: str, interval: str, limit:int) -> pd.DataFrame:
         pass
 
     def get_last_trade(self) -> dict:
