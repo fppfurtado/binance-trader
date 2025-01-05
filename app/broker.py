@@ -55,7 +55,7 @@ class BinanceClient(BaseClient):
     def get_current_price(self, symbol: str) -> decimal:
         return self.client.get_symbol_ticker(symbol=symbol)
 
-    def get_historical_data(self, symbol: str, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit:int = 50):
+    def get_historical_data(self, symbol: str, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit:int = 1000):
         candles = self.client.get_historical_klines(symbol=self.symbol, interval=interval, limit=limit)
         df = pd.DataFrame(
             candles, 

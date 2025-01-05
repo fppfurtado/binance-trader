@@ -20,7 +20,7 @@ def __init():
     API_SECRET = os.getenv('BINANCE_API_SECRET')
     
     global asset_symbol
-    asset_symbol = input('Informe o Ativo a ser operado: ')
+    asset_symbol = input('Informe o Ativo a ser operado: ').upper()
 
     global broker
     broker = BinanceClient(API_KEY, API_SECRET, asset_symbol)
@@ -32,7 +32,7 @@ def __main():
     cerebro = bt.Cerebro()
 
     cerebro.addstrategy(DefaultStrategy)
-    data_feed = bt.feeds.PandasData(dataname=broker.get_historical_data(asset_symbol))
+    data_feed = bt.feeds.PandasData(dataname=broker.get_historical_data(asset_symbol, limit=15))
     cerebro.adddata(data_feed)
     cerebro.broker.set_cash(10000.0)
 
