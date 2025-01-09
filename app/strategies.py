@@ -18,60 +18,86 @@ class DefaultStrategy(Strategy):
         self.symbol = symbol
         self.data = self.datas[0]
         self.dataclose = self.datas[0].close
-        self.buy_orders = []  # Lista para armazenar ordens de compra
+        self.not_positioned_orders = {}  # Lista para armazenar ordens cuja compra não foi executada
+        self.pending_sell_orders = []
+        self.bar_executed = None
         # self.sell_orders = []  # Lista para armazenar ordens de venda
-        self.orders = {}
+        #self.orders = {}
  
     def next(self):
 
-        self.log('Close, %.2f' % self.dataclose[0])
+        self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.pending_sell_orders), self.dataclose[0], self.data.high[0], self.data.low[0]))
 
-        if  len(self.orders) < self.p.max_orders:
+        bar_current = len(self)
+
+        if self.bar_executed and bar_current >= self.bar_executed + 10:
+            if len(self.not_positioned_orders) > 0:
+                for ref, order in self.not_positioned_orders.items():
+                    # cashback = order[0].price*order[0].size
+                    # self.log(f'CASHBACK: {cashback}')
+                    # self.broker.add_cash(cashback)
+                    self.broker.cancel(order[0])
+                self.not_positioned_orders.clear()
+                self.log('************** ALL NOT POSITIONED ORDERS CANCELED! ************** ')
+            self.bar_executed = None
+            
+        #if  self.broker.cash > 0 and len(self.pending_sell_orders) < self.p.max_orders:
+        if  self.broker.cash > 0 and len(self.pending_sell_orders) < self.p.max_orders:
 
             match self.get_market_trend():
                 case MarketTrend.HIGH:
-                    # current_price = float(self.binance.get_current_price(self.symbol)['price'])            
-                    current_price = self.dataclose[0]            
-                    buy_order = self.buy(
-                        price=current_price,
-                        exectype=Order.Limit,
-                        size=self.get_buy_size()
-                    )
-                    self.log('BUY CREATE[%.0f](%.2f, %.2f), %.2f' % (buy_order.ref, buy_order.price, buy_order.size, self.dataclose[0]))                    
-                    self.buy_orders.append(buy_order)
+                    self.execute_high_trend_strategy()                 
                 case MarketTrend.LOW:
                     pass
                 case MarketTrend.UNDEFINED:
                     pass
 
-    def notify_order(self, order):
-        # print(f"Notificação de Ordem: {order}")
-        if order.isbuy():
-            if order.status in [Order.Completed]:
-                self.log('BUY EXECUTED[%.0f](%.2f, %.2f), %.2f' % (order.ref, order.executed.price, order.executed.size, order.executed.price))
-                take_profit_order = self.sell(
-                        exectype=Order.Limit,
-                        price=order.executed.price + 10,
-                        size=self.get_sell_size(),
-                        # parent=order
-                    )
-                self.log('SELL CREATE[%.0f](%.2f, %.2f), %.2f' % (order.ref, take_profit_order.price, take_profit_order.size, self.dataclose[0]))
-                self.orders.update({take_profit_order.ref: (order, take_profit_order)})
-                self.log(f'OPEN ORDERS: {len(self.orders)}')
-        elif order.issell():
-            if order.status in [Order.Completed]:
-                self.log('SELL EXECUTED[%.0f](%.2f, %.2f), %.2f' % (self.orders[order.ref][0].ref, order.executed.price, order.executed.size, order.executed.price))
-                self.log(f'PORTFOLIO: {self.broker.getvalue()}')
-                self.orders.pop(order.ref)
+    def execute_high_trend_strategy(self):
+        # current_price = float(self.binance.get_current_price(self.symbol)['price'])
+        current_price = self.dataclose[0]
+        discount = (0.005 / 100) * current_price
+        buy_price = current_price - discount
+        main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self.get_buy_size(self.p.max_orders),transmit=False)
+        if main_order:
+            #target_profit = (0.1 / 100) * main_order.price
+            target_profit = (0.1 / 100)                    
+            # sell_price = current_price + current_price * target_profit
+            sell_price = current_price - 0.01
+            take_profit_order = self.sell(parent=main_order, exectype=Order.Limit, price=sell_price, size=main_order.size, transmit=True)
+            self.pending_sell_orders.append(take_profit_order)                    
+            self.not_positioned_orders.update({main_order.ref : (main_order, take_profit_order)})                    
+        self.bar_executed = len(self)   
 
+    def notify_order(self, order):
+        #print(f'Ordem ref {order.ref}, Status {order.status}')
+        if order.status == Order.Submitted:
+            self.log('ORDER SUBMITTED(%s, %s, %s, %s) = %.2f' % (order.ref, order.ordtype, order.price, order.size, order.size * order.price)) 
+        # if order.status == Order.Accepted:
+        #     if order.isbuy():
+        #         self.not_positioned_orders.append(order)
+        if order.status in [Order.Completed]:
+            if order.isbuy():        
+                self.log('BUY EXECUTED(%s, %s, %s) = %.2f' % (order.ref, order.executed.price, order.executed.size, order.executed.price*(order.executed.size)))
+                self.not_positioned_orders.pop(order.ref)
+            #elif order.issell():
+            if order.issell():
+                self.log('SELL EXECUTED(%s, %s, %s) = %.2f' % (str(order.parent.ref)+"."+str(order.ref), order.executed.price, order.executed.size, order.executed.price*(-order.executed.size)))
+                self.pending_sell_orders.remove(order)
+
+            self.log(f'POSISION SIZE: {self.position.size}')
+                
+        if order.status == Order.Canceled:
+                self.log('ORDER CANCELED(%s)' % (order.ref))
+                
+                
     def get_market_trend(self) -> MarketTrend:
-        if a.is_bullish(self.get_candle(0)):
-            if a.is_bullish(self.get_candle(-1)):
+        if a.is_bullish(self.get_candle(-1)):
+            if a.is_bullish(self.get_candle(-2)):
                 return MarketTrend.HIGH
             else:
                 return MarketTrend.UNDEFINED
         else:
-            if a.is_bullish(self.get_candle(-1)):
+            if a.is_bullish(self.get_candle(-2)):
                 return MarketTrend.UNDEFINED
             else:
                 return MarketTrend.LOW
@@ -85,15 +111,8 @@ class DefaultStrategy(Strategy):
             self.data.close[index]
         ]
 
-    def get_buy_size(self):
+    def get_buy_size(self, cash_divisor):
         # Fração do capital disponível
-        cash_available = self.broker.get_cash() / self.p.max_orders
+        cash_available = self.broker.get_cash() / cash_divisor
         size = cash_available / self.data.close[0]  # Quantidade baseada no preço de fechamento
         return size
-
-    def get_sell_size(self):
-        # Retorna a quantidade equivalente ao preço da última ordem de compra + 10 unidades do preço
-        last_buy_price = self.buy_orders[-1].price
-        sell_price = last_buy_price + 10  # Adiciona 10 unidades do preço
-        quantity = self.buy_orders[-1].size  # Calcula a quantidade equivalente
-        return quantity

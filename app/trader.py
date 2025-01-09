@@ -84,8 +84,10 @@ def __main():
     # print(trade_analysis)
 
     # Print out the final result
-    print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
-    print(strategy.position)
+    print(f'Cash: {cerebro.broker.cash}')
+    print(f'Position Size: {strategy.position.size}')
+    print(f'Final Portfolio Value: {cerebro.broker.getvalue()}')
+    # print(strategy.position)
     print('=====================')
         
     # while broker is not None:
