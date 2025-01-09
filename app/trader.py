@@ -19,11 +19,11 @@ def get_candles_by_date(year, month, day, interval = '1m'):
     start_timestamp = int(start_time.timestamp()) * 1000
     end_timestamp = int(end_time.timestamp()) * 1000
     
-    klines = broker.get_historical_data(asset_symbol, start_str=start_timestamp, end_str=end_timestamp)
+    klines = broker.get_historical_klines(asset_symbol, start_str=start_timestamp, end_str=end_timestamp)
 
     start_timestamp_2 = klines[-1][0] + 1
 
-    klines.extend(broker.get_historical_data(asset_symbol, start_str=start_timestamp_2, end_str=end_timestamp))
+    klines.extend(broker.get_historical_klines(asset_symbol, start_str=start_timestamp_2, end_str=end_timestamp))
 
     return klines
 
@@ -63,7 +63,14 @@ def __main():
     cerebro = bt.Cerebro()
 
     cerebro.addstrategy(DefaultStrategy, binance=broker)
-    data_feed = bt.feeds.PandasData(dataname=candles_to_dataframe(get_candles_by_date(2025, 1, 6)))
+
+    start_datetime = datetime(2025, 1, 3)
+    end_datetime = start_datetime + timedelta(days=5)
+    # end_datetime = start_datetime + timedelta(hours=5)
+    candles_10s = broker.get_10s_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime)
+
+    # data_feed = bt.feeds.PandasData(dataname=candles_to_dataframe(get_candles_by_date(2025, 1, 6)))
+    data_feed = bt.feeds.PandasData(dataname=candles_10s)
     cerebro.adddata(data_feed)
     cerebro.broker.set_cash(10000.0)
 
@@ -87,9 +94,10 @@ def __main():
     print(f'Cash: {cerebro.broker.cash}')
     print(f'Position Size: {strategy.position.size}')
     print(f'Final Portfolio Value: {cerebro.broker.getvalue()}')
+    print(f'Last Sell Order: {strategy.pending_sell_orders[-1]}')
     # print(strategy.position)
     print('=====================')
-        
+    
     # while broker is not None:
     #     support = analysis.get_support_price(broker.get_historical_data(asset_symbol))
     #     print(support)

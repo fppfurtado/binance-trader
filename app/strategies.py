@@ -26,11 +26,11 @@ class DefaultStrategy(Strategy):
  
     def next(self):
 
-        self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.pending_sell_orders), self.dataclose[0], self.data.high[0], self.data.low[0]))
+        # self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.pending_sell_orders), self.dataclose[0], self.data.high[0], self.data.low[0]))
 
         bar_current = len(self)
 
-        if self.bar_executed and bar_current >= self.bar_executed + 10:
+        if self.bar_executed and bar_current >= self.bar_executed + 30:
             if len(self.not_positioned_orders) > 0:
                 for ref, order in self.not_positioned_orders.items():
                     # cashback = order[0].price*order[0].size
@@ -46,6 +46,7 @@ class DefaultStrategy(Strategy):
 
             match self.get_market_trend():
                 case MarketTrend.HIGH:
+                    self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.pending_sell_orders), self.dataclose[0], self.data.high[0], self.data.low[0]))
                     self.execute_high_trend_strategy()                 
                 case MarketTrend.LOW:
                     pass
@@ -55,14 +56,15 @@ class DefaultStrategy(Strategy):
     def execute_high_trend_strategy(self):
         # current_price = float(self.binance.get_current_price(self.symbol)['price'])
         current_price = self.dataclose[0]
-        discount = (0.005 / 100) * current_price
-        buy_price = current_price - discount
+        # discount = (0.05 / 100) * current_price
+        # buy_price = current_price - discount
+        buy_price = current_price
         main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self.get_buy_size(self.p.max_orders),transmit=False)
         if main_order:
             #target_profit = (0.1 / 100) * main_order.price
-            target_profit = (0.1 / 100)                    
-            # sell_price = current_price + current_price * target_profit
-            sell_price = current_price - 0.01
+            target_profit = (0.1 / 100)
+            sell_price = main_order.price * (1 + target_profit)
+            # sell_price = current_price - 0.01
             take_profit_order = self.sell(parent=main_order, exectype=Order.Limit, price=sell_price, size=main_order.size, transmit=True)
             self.pending_sell_orders.append(take_profit_order)                    
             self.not_positioned_orders.update({main_order.ref : (main_order, take_profit_order)})                    
@@ -71,6 +73,7 @@ class DefaultStrategy(Strategy):
     def notify_order(self, order):
         #print(f'Ordem ref {order.ref}, Status {order.status}')
         if order.status == Order.Submitted:
+            self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.pending_sell_orders), self.dataclose[0], self.data.high[0], self.data.low[0]))
             self.log('ORDER SUBMITTED(%s, %s, %s, %s) = %.2f' % (order.ref, order.ordtype, order.price, order.size, order.size * order.price)) 
         # if order.status == Order.Accepted:
         #     if order.isbuy():
@@ -83,11 +86,14 @@ class DefaultStrategy(Strategy):
             if order.issell():
                 self.log('SELL EXECUTED(%s, %s, %s) = %.2f' % (str(order.parent.ref)+"."+str(order.ref), order.executed.price, order.executed.size, order.executed.price*(-order.executed.size)))
                 self.pending_sell_orders.remove(order)
+            self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.pending_sell_orders), self.dataclose[0], self.data.high[0], self.data.low[0]))
 
             self.log(f'POSISION SIZE: {self.position.size}')
                 
         if order.status == Order.Canceled:
                 self.log('ORDER CANCELED(%s)' % (order.ref))
+                if order.issell():
+                    self.pending_sell_orders.remove(order)
                 
                 
     def get_market_trend(self) -> MarketTrend:

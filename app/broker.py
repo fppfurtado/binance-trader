@@ -1,4 +1,6 @@
 import decimal
+import time
+from datetime import datetime
 import pandas as pd
 from typing import Protocol, Deque, List, Tuple
 from binance.client import Client
@@ -21,7 +23,10 @@ class BaseClient(Protocol):
     def get_current_price(self, symbol: str) -> decimal:
         pass
 
-    def get_historical_data(self, symbol: str, interval: str, limit:int, start_str = None, end_str = None) -> pd.DataFrame:
+    def get_historical_klines(self, symbol: str, interval: str, limit:int, start_str = None, end_str = None) -> pd.DataFrame:
+        pass
+
+    def get_10s_klines(self, symbol: str, start_time, end_time=None):
         pass
 
     def get_last_trade(self) -> dict:
@@ -64,8 +69,104 @@ class BinanceClient(BaseClient):
     def get_current_price(self, symbol: str) -> decimal:
         return self.client.get_symbol_ticker(symbol=symbol)
 
-    def get_historical_data(self, symbol: str, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit:int = 1000, start_str = None, end_str = None):
-        return self.client.get_historical_klines(symbol=self.symbol, interval=interval, limit=limit, start_str=start_str, end_str=end_str)        
+    def get_historical_klines(self, symbol: str, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit:int = 1000, start_str = None, end_str = None):
+        return self.client.get_historical_klines(symbol=self.symbol, interval=interval, limit=limit, start_str=start_str, end_str=end_str) 
+
+    def get_10s_klines(self, symbol, start_time, end_time=None):
+        """
+        Fetch 1s klines and aggregate them to 10s klines
+        
+        Parameters:
+        - symbol: Trading pair (e.g., 'BTCUSDT')
+        - start_time: Start time in datetime format
+        - end_time: End time in datetime format (default: current time)
+        """
+        # Convert times to milliseconds timestamp
+        start_ts = int(start_time.timestamp() * 1000)
+        if end_time is None:
+            end_time = datetime.now()
+        end_ts = int(end_time.timestamp() * 1000)
+        
+        all_klines = []
+        current_ts = start_ts
+        
+        print(f"Fetching 1s klines for {symbol} from {start_time} to {end_time}")
+        
+        while current_ts < end_ts:
+            try:
+                # Fetch batch of 1s klines (1000 is the maximum limit per request)
+                klines = self.client.get_klines(
+                    symbol=symbol,
+                    interval=Client.KLINE_INTERVAL_1SECOND,
+                    startTime=current_ts,
+                    endTime=min(current_ts + (1000 * 1000), end_ts),  # 1s * 1000 candles
+                    limit=1000
+                )
+                
+                if not klines:
+                    print("No more klines found")
+                    break
+                    
+                # Process klines
+                for k in klines:
+                    kline_data = {
+                        'timestamp': datetime.fromtimestamp(k[0] / 1000),
+                        'open': float(k[1]),
+                        'high': float(k[2]),
+                        'low': float(k[3]),
+                        'close': float(k[4]),
+                        'volume': float(k[5]),
+                        'close_time': datetime.fromtimestamp(k[6] / 1000)
+                        # 'quote_volume': float(k[7]),
+                        # 'trades': int(k[8]),
+                        # 'taker_buy_volume': float(k[9]),
+                        # 'taker_buy_quote_volume': float(k[10])
+                    }
+                    all_klines.append(kline_data)
+                
+                # Update timestamp for next batch
+                current_ts = klines[-1][6] + 1
+                
+                # Print progress
+                progress = (current_ts - start_ts) / (end_ts - start_ts) * 100
+                print(f"\rProgress: {progress:.2f}% - Klines collected: {len(all_klines)}", end='')
+                
+                # Rate limiting
+                time.sleep(0.1)
+                
+            except Exception as e:
+                print(f"\nError fetching klines: {e}")
+                time.sleep(1)
+                continue
+        
+        print("\nKline collection completed")
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(all_klines)
+        
+        # Create 10-second groups
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df['10s_group'] = df['timestamp'].dt.floor('10s')
+        df.set_index('timestamp', inplace=True)
+        
+        # Aggregate to 10-second klines
+        agg_dict = {
+            'open': 'first',
+            'high': 'max',
+            'low': 'min',
+            'close': 'last',
+            'volume': 'sum'
+            # 'quote_volume': 'sum',
+            # 'trades': 'sum',
+            # 'taker_buy_volume': 'sum',
+            # 'taker_buy_quote_volume': 'sum'
+        }
+        
+        # df_10s = df.groupby('10s_group').agg(agg_dict).reset_index()
+        df_10s = df.groupby('10s_group').agg(agg_dict)
+        df_10s = df_10s.rename(columns={'10s_group': 'timestamp'})
+        
+        return df_10s     
 
     def _process_kline_message(self, msg: dict) -> None:
         if msg['e'] == 'kline' and msg['k']['i'] == '1m':
@@ -90,7 +191,7 @@ class BinanceClient(BaseClient):
             
             # Initialize candle time if needed
             if self.current_candle_time is None:
-                self.current_candle_time = trade_time.floor('10S')
+                self.current_candle_time = trade_time.floor('10s')
             
             # Check if we need to create a new candle
             if trade_time >= self.current_candle_time + pd.Timedelta(seconds=self.candle_interval):
@@ -166,10 +267,10 @@ class BinanceClient(BaseClient):
 
     def start(self) -> None:
         self.socket_manager.start()
-        self.socket_manager.start_trade_socket(
-            symbol=self.symbol,
-            callback=self._trade_handler
-        )
+        # self.socket_manager.start_trade_socket(
+        #     symbol=self.symbol,
+        #     callback=self._trade_handler
+        # )
         self.socket_manager.start_kline_socket(
             symbol=self.symbol,
             callback=self._process_kline_message
