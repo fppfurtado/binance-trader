@@ -6,6 +6,7 @@ from collections import deque
 from threading import Lock
 from binance.client import Client
 from binance.ws.streams import ThreadedWebsocketManager
+import logging
 
 class BaseClient(Protocol):
     def get_system_status() -> dict:
@@ -41,6 +42,14 @@ class BinanceClient(BaseClient):
         self.candles: Deque[Tuple] = deque(maxlen=candles_window)
         self.lock = Lock()
 
+        # Store trades for candle creation
+        self.trades = []
+        self.current_candle_time = None
+        self.candles = []
+        
+        # Candle settings
+        self.candle_interval = 10  # seconds
+
         self.start()
     
     def get_system_status(self):
@@ -71,16 +80,78 @@ class BinanceClient(BaseClient):
             with self.lock:
                 self.candles.append(candle)
 
-    def _process_trade_message(self, msg: dict) -> None:
-        if msg['e'] == 'trade':  # Evento de trade (negociação)
-            preco = (
-                msg['E'],   # timestamp
-                msg['p']    # Preço da negociação
-            )
+    def _trade_handler(self, msg):
+        """Handle incoming trade messages"""
+        try:
+            # Extract trade data
+            trade_time = pd.to_datetime(msg['T'], unit='ms')
+            price = float(msg['p'])
+            quantity = float(msg['q'])
             
+            # Initialize candle time if needed
+            if self.current_candle_time is None:
+                self.current_candle_time = trade_time.floor('10S')
+            
+            # Check if we need to create a new candle
+            if trade_time >= self.current_candle_time + pd.Timedelta(seconds=self.candle_interval):
+                # Create candle from existing trades
+                if self.trades:
+                    self.create_candle()
+                
+                # Update candle time
+                self.current_candle_time = trade_time.floor('10S')
+            
+            # Add trade to current window
+            self.trades.append({
+                'timestamp': trade_time,
+                'price': price,
+                'quantity': quantity
+            })
+
             with self.lock:
                 self.last_trade = msg
+                            
+        except Exception as e:
+            logger.error(f"Error processing trade: {e}")
 
+    def create_candle(self):
+        """Create a candle from collected trades"""
+        if not self.trades:
+            return
+        
+        try:
+            # Convert trades to DataFrame
+            df = pd.DataFrame(self.trades)
+            
+            # Calculate OHLCV
+            candle = {
+                'timestamp': self.current_candle_time,
+                'open': df.iloc[0]['price'],
+                'high': df['price'].max(),
+                'low': df['price'].min(),
+                'close': df.iloc[-1]['price'],
+                'volume': df['quantity'].sum(),
+                'trades': len(df),
+                'vwap': (df['price'] * df['quantity']).sum() / df['quantity'].sum()
+            }
+            
+            self.candles.append(candle)
+            self.trades = []  # Clear trades
+            
+            # Log candle
+            logger.info(
+                f"New candle: Time={candle['timestamp']}, "
+                f"O={candle['open']:.2f}, H={candle['high']:.2f}, "
+                f"L={candle['low']:.2f}, C={candle['close']:.2f}, "
+                f"V={candle['volume']:.4f}"
+            )
+            
+            return candle
+            
+        except Exception as e:
+            logger.error(f"Error creating candle: {e}")
+            self.trades = []  # Clear trades on error
+    
     def get_last_trade(self) -> dict:
         with self.lock:
             return self.last_trade
@@ -97,7 +168,7 @@ class BinanceClient(BaseClient):
         self.socket_manager.start()
         self.socket_manager.start_trade_socket(
             symbol=self.symbol,
-            callback=self._process_trade_message
+            callback=self._trade_handler
         )
         self.socket_manager.start_kline_socket(
             symbol=self.symbol,
