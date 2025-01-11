@@ -62,17 +62,18 @@ def __main():
 
     cerebro = bt.Cerebro()
 
-    cerebro.addstrategy(DefaultStrategy, binance=broker)
+    cerebro.addstrategy(DefaultStrategy, binance=broker, target_profit=(0.5 / 100))
 
-    start_datetime = datetime(2025, 1, 3)
-    end_datetime = start_datetime + timedelta(days=5)
+    start_datetime = datetime(2024, 12, 9)
+    end_datetime = start_datetime + timedelta(days=30)
     # end_datetime = start_datetime + timedelta(hours=5)
     candles_10s = broker.get_10s_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime)
+    capital = 10000
 
     # data_feed = bt.feeds.PandasData(dataname=candles_to_dataframe(get_candles_by_date(2025, 1, 6)))
     data_feed = bt.feeds.PandasData(dataname=candles_10s)
     cerebro.adddata(data_feed)
-    cerebro.broker.set_cash(10000.0)
+    cerebro.broker.set_cash(capital)
 
     # Print out the starting conditions
     print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
@@ -93,8 +94,12 @@ def __main():
     # Print out the final result
     print(f'Cash: {cerebro.broker.cash}')
     print(f'Position Size: {strategy.position.size}')
+    print(f'Position Price: {strategy.position.price}')
+    print(f'Buys Executed: {len(strategy.executed_buy_orders)}')
+    print(f'Sells Executed: {len(strategy.executed_sell_orders)} ({(len(strategy.executed_sell_orders)/len(strategy.executed_buy_orders)*100):.2f}%)')
+    print(f'Total Profit: {strategy.total_profit} ({(strategy.total_profit/capital*100):.2f}%)')
     print(f'Final Portfolio Value: {cerebro.broker.getvalue()}')
-    print(f'Last Sell Order: {strategy.pending_sell_orders[-1]}')
+    # print(f' ---- Last Sell Order ----\n{strategy.pending_sell_orders[-1]}')
     # print(strategy.position)
     print('=====================')
     
