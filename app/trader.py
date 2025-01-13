@@ -19,11 +19,11 @@ def get_candles_by_date(year, month, day, interval = '1m'):
     start_timestamp = int(start_time.timestamp()) * 1000
     end_timestamp = int(end_time.timestamp()) * 1000
     
-    klines = broker.get_historical_klines(asset_symbol, start_str=start_timestamp, end_str=end_timestamp)
+    klines = broker.get_klines(asset_symbol, start_str=start_timestamp, end_str=end_timestamp)
 
     start_timestamp_2 = klines[-1][0] + 1
 
-    klines.extend(broker.get_historical_klines(asset_symbol, start_str=start_timestamp_2, end_str=end_timestamp))
+    klines.extend(broker.get_klines(asset_symbol, start_str=start_timestamp_2, end_str=end_timestamp))
 
     return klines
 
@@ -32,13 +32,16 @@ def candles_to_dataframe(candles):
     df = pd.DataFrame(
             candles, 
             columns=[
-                'timestamp', 'open', 'high', 'low', 'close',
+                'datetime', 'open', 'high', 'low', 'close',
                 'volume', 'close_time', 'quote_volume', 'trades',
                 'taker_buy_base', 'taker_buy_quote', 'ignore'
             ]
         )
-    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-    df.set_index('timestamp', inplace=True)
+    df['datetime'] = pd.to_datetime(df['datetime'], unit='ms')
+    # arr_date = df['datetime'].dt.to_pydatetime()
+    # df['datetime'] = pd.Series(arr_date, dtype=object)
+    # df['timestamp'] = datetime.utcfromtimestamp(df['timestamp'])
+    # df.set_index('timestamp', inplace=True)
 
     for col in ['open', 'high', 'low', 'close', 'volume']:
         df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -65,13 +68,15 @@ def __main():
     cerebro.addstrategy(DefaultStrategy, binance=broker, target_profit=(0.5 / 100))
 
     start_datetime = datetime(2024, 12, 9)
-    end_datetime = start_datetime + timedelta(days=30)
-    # end_datetime = start_datetime + timedelta(hours=5)
-    candles_10s = broker.get_10s_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime)
+    # end_datetime = start_datetime + timedelta(days=30)
+    end_datetime = start_datetime + timedelta(hours=5)
+    # candles_10s = broker.get_10s_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime)
     capital = 10000
 
-    # data_feed = bt.feeds.PandasData(dataname=candles_to_dataframe(get_candles_by_date(2025, 1, 6)))
-    data_feed = bt.feeds.PandasData(dataname=candles_10s)
+    df_candles = candles_to_dataframe(get_candles_by_date(2025, 1, 6))
+    df_candles.set_index('datetime', inplace=True)
+    data_feed = bt.feeds.PandasData(dataname=df_candles)
+    # data_feed = bt.feeds.PandasData(dataname=candles_10s)
     cerebro.adddata(data_feed)
     cerebro.broker.set_cash(capital)
 

@@ -2,10 +2,11 @@ from backtrader import Strategy, Order, Sizer
 import analysis as a
 from analysis import MarketTrend
 from datetime import datetime
+import numpy as np
 
 class DefaultStrategy(Strategy):
     params = (
-        ('max_orders', 570),     # Limite máximo de ordens abertas
+        ('max_orders', 400),     # Limite máximo de ordens abertas
     )
 
     def log(self, txt, dt=None, carriage_return=False):
@@ -29,8 +30,14 @@ class DefaultStrategy(Strategy):
         self.total_profit = 0
         self.bar_executed = None
         self.trend = None
+        self.safety_zone = None
         # self.sell_orders = []  # Lista para armazenar ordens de venda
         #self.orders = {}
+        self._set_up_safety_zone()
+        print(self.safety_zone)
+        self.safety_zone.price_offset = 5000
+        print(self.safety_zone)
+        
  
     def next(self):
 
@@ -71,7 +78,7 @@ class DefaultStrategy(Strategy):
             # discount = (0.05 / 100) * current_price
             # buy_price = current_price - discount
             buy_price = current_price
-            main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self.get_buy_size(self.p.max_orders),transmit=False)
+            main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self._get_buy_size(self.p.max_orders),transmit=False)
 
             if main_order:
                 #target_profit = (0.1 / 100) * main_order.price
@@ -114,18 +121,18 @@ class DefaultStrategy(Strategy):
                     self.pending_sell_orders.remove(order)
                 
     def get_market_trend(self) -> MarketTrend:
-        if a.is_bullish(self.get_candle(-1)):
-            if a.is_bullish(self.get_candle(-2)):
+        if a.is_bullish(self._get_candle(-1)):
+            if a.is_bullish(self._get_candle(-2)):
                 return MarketTrend.HIGH
             else:
                 return MarketTrend.UNDEFINED
         else:
-            if a.is_bullish(self.get_candle(-2)):
+            if a.is_bullish(self._get_candle(-2)):
                 return MarketTrend.UNDEFINED
             else:
                 return MarketTrend.LOW
 
-    def get_candle(self, index):
+    def _get_candle(self, index):
         return [
             self.data.datetime[index],
             self.data.open[index],
@@ -134,8 +141,72 @@ class DefaultStrategy(Strategy):
             self.data.close[index]
         ]
 
-    def get_buy_size(self, cash_divisor):
+    def _get_buy_size(self, cash_divisor):
         # Fração do capital disponível
         cash_available = self.broker.get_cash() / cash_divisor
         size = cash_available / self.data.close[0]  # Quantidade baseada no preço de fechamento
         return size
+
+    def _set_up_safety_zone(self):
+        max_price = self.dataclose[0]
+        price_offset = self._calculate_ranges_median()
+        
+        self.safety_zone = SafetyZone(max_price, price_offset)
+
+    def _calculate_ranges_median(self):
+        # Obtendo os candles mensais dos últimos 24 meses (períodos de 1 mês)
+        candles = self.binance.get_klines(symbol='BTCUSDT', interval='1M', limit=24)
+
+        # Extrair os ranges (high - low) de cada candle
+        ranges = [float(candle[2]) - float(candle[3]) for candle in candles]
+
+        # Calcular a mediana
+        return np.median(ranges)
+
+class SafetyZone:
+    def __init__(self, max_price, price_offset):
+        self._max_price = max_price
+        self._price_offset = price_offset
+        self.q1 = None
+        self.q1 = None
+        self.q3 = None
+
+        self._calculate_quartiles()
+
+    def _calculate_quartiles(self):
+        self.q1 = self.min_price + (self._price_offset+1)/4
+        self.q2 = self.min_price + (self._price_offset+1)/2
+        self.q3 = self.min_price + (self._price_offset+1)/4*3
+
+    @property
+    def min_price(self):
+        return self._max_price - self._price_offset
+
+    @property
+    def max_price(self):
+        return self._max_price
+
+    @max_price.setter
+    def max_price(self, max_price):
+        self._max_price = max_price
+        self._calculate_quartiles()
+
+    @property
+    def price_offset(self):
+        return self._price_offset
+
+    @price_offset.setter
+    def price_offset(self, price_offset):
+        self._price_offset = price_offset
+        self._calculate_quartiles()
+
+    def __str__(self):
+        header = f'========= SAFETY ZONE =========\n'
+        max_price = f'Max Price: {self._max_price}\n'
+        price_offset = f'Price Offset: {self._price_offset}\n'
+        q1 = f'Q3: {self.q3}\n'
+        q2  = f'Q2: {self.q2}\n'
+        q3 = f'Q1: {self.q1}\n'
+        min_price = f'Min Price: {self.min_price}\n'
+
+        return header + max_price + price_offset + q1 + q2 + q3 + min_price

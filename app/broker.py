@@ -23,7 +23,7 @@ class BaseClient(Protocol):
     def get_current_price(self, symbol: str) -> decimal:
         pass
 
-    def get_historical_klines(self, symbol: str, interval: str, limit:int, start_str = None, end_str = None) -> pd.DataFrame:
+    def get_klines(self, symbol: str, interval: str, limit:int, start_str, end_str):
         pass
 
     def get_10s_klines(self, symbol: str, start_time, end_time=None):
@@ -69,8 +69,11 @@ class BinanceClient(BaseClient):
     def get_current_price(self, symbol: str) -> decimal:
         return self.client.get_symbol_ticker(symbol=symbol)
 
-    def get_historical_klines(self, symbol: str, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit:int = 1000, start_str = None, end_str = None):
-        return self.client.get_historical_klines(symbol=self.symbol, interval=interval, limit=limit, start_str=start_str, end_str=end_str) 
+    def get_klines(self, symbol: str, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit:int = 1000, start_str = None, end_str = None):
+        if start_str and end_str:
+            return self.client.get_historical_klines(symbol=self.symbol, interval=interval, limit=limit, start_str=start_str, end_str=end_str) 
+        else:
+            return self.client.get_klines(symbol=self.symbol, interval=interval, limit=limit)
 
     def get_10s_klines(self, symbol, start_time, end_time=None):
         """
