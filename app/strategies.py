@@ -34,10 +34,6 @@ class DefaultStrategy(Strategy):
         # self.sell_orders = []  # Lista para armazenar ordens de venda
         #self.orders = {}
         self._set_up_safety_zone()
-        print(self.safety_zone)
-        self.safety_zone.price_offset = 5000
-        print(self.safety_zone)
-        
  
     def next(self):
 
