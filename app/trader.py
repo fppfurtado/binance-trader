@@ -65,20 +65,26 @@ def __main():
 
     cerebro = bt.Cerebro()
 
-    cerebro.addstrategy(DefaultStrategy, binance=broker, target_profit=(0.5 / 100))
+    cerebro.addstrategy(DefaultStrategy, binance=broker, target_profit=(0.05 / 100))
 
     start_datetime = datetime(2024, 12, 9)
-    # end_datetime = start_datetime + timedelta(days=30)
-    end_datetime = start_datetime + timedelta(hours=5)
-    # candles_10s = broker.get_10s_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime)
-    capital = 10000
+    # end_datetime = start_datetime + timedelta(hours=1)
+    end_datetime = start_datetime + timedelta(days=30)
+    candles_10s = broker.get_10s_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime)
+    stake = 10000
 
-    df_candles = candles_to_dataframe(get_candles_by_date(2025, 1, 6))
-    df_candles.set_index('datetime', inplace=True)
-    data_feed = bt.feeds.PandasData(dataname=df_candles)
-    # data_feed = bt.feeds.PandasData(dataname=candles_10s)
+    # ranges = candles_10s['high'] - candles_10s['low']
+    # print(ranges)
+
+    # print(candles_10s['close'].mean())
+    # print(ranges.mean())
+
+    # df_candles = candles_to_dataframe(get_candles_by_date(2025, 1, 6))
+    # df_candles.set_index('datetime', inplace=True)
+    # data_feed = bt.feeds.PandasData(dataname=df_candles)
+    data_feed = bt.feeds.PandasData(dataname=candles_10s)
     cerebro.adddata(data_feed)
-    cerebro.broker.set_cash(capital)
+    cerebro.broker.set_cash(stake)
 
     # Print out the starting conditions
     print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
@@ -89,21 +95,21 @@ def __main():
 
     # Resumo do desempenho
     print("==== Resumo do Desempenho ====")
-    # print(f"Índice de Sharpe: {strategy.analyzers.sharpe.get_analysis()['sharperatio']}")
-    # print(f"Máximo Drawdown: {strategy.analyzers.drawdown.get_analysis()['max']['drawdown']}%")
-
-    # Acessar os resultados do TradeAnalyzer
-    #trade_analysis = results[0].analyzers
-    # print(trade_analysis)
-
+    
     # Print out the final result
     print(f'Cash: {cerebro.broker.cash}')
     print(f'Position Size: {strategy.position.size}')
     print(f'Position Price: {strategy.position.price}')
     print(f'Buys Executed: {len(strategy.executed_buy_orders)}')
     print(f'Sells Executed: {len(strategy.executed_sell_orders)} ({(len(strategy.executed_sell_orders)/len(strategy.executed_buy_orders)*100):.2f}%)')
-    print(f'Total Profit: {strategy.total_profit} ({(strategy.total_profit/capital*100):.2f}%)')
+    print(f'Total Profit: {strategy.total_profit} ({(strategy.total_profit/stake*100):.2f}%)')
     print(f'Final Portfolio Value: {cerebro.broker.getvalue()}')
+    print(f'High Trends: {strategy.trend_counters[0]}')
+    print(f'Low Trends: {strategy.trend_counters[1]}')
+    print(f'Undefined Trends: {strategy.trend_counters[2]}')
+    print(f'Total Trends: {sum(strategy.trend_counters)}')
+    print(strategy.fisrt_zone)
+    print(strategy.safety_zone)
     # print(f' ---- Last Sell Order ----\n{strategy.pending_sell_orders[-1]}')
     # print(strategy.position)
     print('=====================')
