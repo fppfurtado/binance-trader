@@ -6,7 +6,7 @@ import numpy as np
 
 class DefaultStrategy(Strategy):
     params = (
-        ('max_pending_sell_orders', 20),     # Limite máximo de operações abertas
+        ('max_pending_sell_orders', 1),     # Limite máximo de operações abertas
     )
 
     def log(self, txt, dt=None, carriage_return=False):
@@ -35,7 +35,7 @@ class DefaultStrategy(Strategy):
         self.trend_counters = [0, 0, 0]
         # self.sell_orders = []  # Lista para armazenar ordens de venda
         #self.orders = {}
-        self._set_up_safety_zone()
+        # self._set_up_safety_zone()
         self.fisrt_zone = self.safety_zone.__str__()
  
     def next(self):
@@ -50,7 +50,8 @@ class DefaultStrategy(Strategy):
                     self.log('******************* HIGH TREND *******************',carriage_return=True)
                     self.trend = MarketTrend.HIGH
                 self.trend_counters[0] += 1
-                self.execute_high_trend_strategy(bar_current)
+                for i in range(self.p.max_pending_sell_orders):
+                    self.execute_high_trend_strategy(bar_current)
             case MarketTrend.LOW:
                 if self.trend != MarketTrend.LOW:
                     self.log('******************* LOW TREND *******************',carriage_return=True)
@@ -62,12 +63,13 @@ class DefaultStrategy(Strategy):
                     self.log('******************* UNDEFINED TREND *******************',carriage_return=True)
                     self.trend = MarketTrend.UNDEFINED                
                 self.trend_counters[2] += 1
-                self.execute_high_trend_strategy(bar_current)
+                # for i in range(self.p.max_pending_sell_orders):
+                #     self.execute_high_trend_strategy(bar_current)
                 # pass
 
     def execute_high_trend_strategy(self, bar_current):
 
-        if self.bar_executed and bar_current >= self.bar_executed + 30:
+        if self.bar_executed and bar_current >= self.bar_executed + 5:
             if len(self.not_positioned_operations) > 0:
                 for ref, order in self.not_positioned_operations.items():
                     self.broker.cancel(order[0])
@@ -78,31 +80,44 @@ class DefaultStrategy(Strategy):
         # current_price = float(self.binance.get_current_price(self.symbol)['price'])
         if  self.broker.cash > 0 and len(self.pending_sell_orders) < self.p.max_pending_sell_orders:
 
+            self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.pending_sell_orders), self.dataclose[0], self.data.high[0], self.data.low[0]))                                        
             current_price = self.dataclose[0]
+            
+            if self.safety_zone:
+                if current_price > self.safety_zone.max_price or current_price < self.safety_zone.min_price:
+                    self.safety_zone.max_price = current_price
 
-            if current_price > self.safety_zone.max_price or current_price < self.safety_zone.min_price:
-                self.safety_zone.max_price = current_price
+                for index, range in enumerate(self.safety_zone.price_ranges):
+                    if range[0] <= current_price < range[1] and self.safety_zone.counters[index] < self.p.max_pending_sell_orders/4:
+                        buy_price = current_price
+                        main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self._get_buy_size(self.p.max_pending_sell_orders),transmit=False)
 
-            for index, range in enumerate(self.safety_zone.price_ranges):
-                if range[0] <= current_price < range[1] and self.safety_zone.counters[index] < self.p.max_pending_sell_orders/4:
-                    self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.pending_sell_orders), self.dataclose[0], self.data.high[0], self.data.low[0]))                
-                    buy_price = current_price
-                    main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self._get_buy_size(self.p.max_pending_sell_orders),transmit=False)
+                        if main_order:
+                            sell_price = main_order.price * (1 + self.target_profit)
+                            take_profit_order = self.sell(parent=main_order, exectype=Order.Limit, price=sell_price, size=main_order.size, transmit=True, parent_price=main_order.price, range_index=index)
+                            self.pending_sell_orders.append(take_profit_order)                    
+                            self.not_positioned_operations.update({main_order.ref : (main_order, take_profit_order)})
+                            self.safety_zone.increase_range_counter(index)
+                        
+            else:
+                buy_price = current_price * (1 - self.target_profit/2)
+                main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self._get_buy_size(self.p.max_pending_sell_orders),transmit=False)
 
-                    if main_order:
-                        sell_price = main_order.price * (1 + self.target_profit)
-                        take_profit_order = self.sell(parent=main_order, exectype=Order.Limit, price=sell_price, size=main_order.size, transmit=True, parent_price=main_order.price, range_index=index)
-                        self.pending_sell_orders.append(take_profit_order)                    
-                        self.not_positioned_operations.update({main_order.ref : (main_order, take_profit_order)})
-                        self.safety_zone.increase_range_counter(index)
+                if main_order:
+                    sell_price = main_order.price * (1 + self.target_profit)
+                    take_profit_order = self.sell(parent=main_order, exectype=Order.Limit, price=sell_price, size=main_order.size, transmit=True, parent_price=main_order.price, range_index=None)
+                    self.pending_sell_orders.append(take_profit_order)                    
+                    self.not_positioned_operations.update({main_order.ref : (main_order, take_profit_order)})
 
-                    self.bar_executed = len(self)
+            self.bar_executed = len(self)
+
+
 
     def notify_order(self, order):
         #print(f'Ordem ref {order.ref}, Status {order.status}')
         if order.status == Order.Submitted:
-            pass
-            # self.log('ORDER SUBMITTED(%s, %s, %s, %s) = %.2f' % (order.ref, order.ordtype, order.price, order.size, order.size * order.price)) 
+            # pass
+            self.log('ORDER SUBMITTED(%s, %s, %s, %s) = %.2f' % (order.ref, order.ordtype, order.price, order.size, order.size * order.price)) 
         # if order.status == Order.Accepted:
         #     if order.isbuy():
         #         self.not_positioned_operations.append(order)
@@ -117,8 +132,9 @@ class DefaultStrategy(Strategy):
                 self.log('SELL EXECUTED(%s, %s, %s) = %.2f' % (str(order.parent.ref)+"."+str(order.ref), order.executed.price, order.executed.size, order.executed.price*(-order.executed.size)))
                 self.pending_sell_orders.remove(order)
                 self.executed_sell_orders.append(order)
-                self.safety_zone.decrease_range_counter(order.info['range_index'])
                 self.total_profit = self.total_profit + (order.price - float(order.info['parent_price']))*(-order.size)
+                if self.safety_zone:
+                    self.safety_zone.decrease_range_counter(order.info['range_index'])
                 
             self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.pending_sell_orders), self.dataclose[0], self.data.high[0], self.data.low[0]))
 
@@ -128,9 +144,9 @@ class DefaultStrategy(Strategy):
                 self.log('ORDER CANCELED(%s)' % (order.ref))
                 if order.issell():
                     self.pending_sell_orders.remove(order)
-                    self.safety_zone.decrease_range_counter(order.info['range_index'])
-
-                
+                    if self.safety_zone:
+                        self.safety_zone.decrease_range_counter(order.info['range_index'])
+             
     def get_market_trend(self) -> MarketTrend:
         if a.is_bullish(self._get_candle(-1)):
             if a.is_bullish(self._get_candle(-2)):
@@ -159,13 +175,13 @@ class DefaultStrategy(Strategy):
 
     def _set_up_safety_zone(self):
         max_price = self.dataclose[0]
-        price_offset = self._calculate_ranges_median()
+        price_offset = self._calculate_timeframe_range_limits()
         
-        self.safety_zone = SafetyZone(max_price, price_offset)
+        self.safety_zone = SafetyZone(max_price, price_offset, 0)
 
-    def _calculate_ranges_median(self):
+    def _calculate_timeframe_range_limits(self):
         # Obtendo os candles mensais dos últimos 24 meses (períodos de 1 mês)
-        candles = self.binance.get_klines(symbol=self.symbol, interval='1M', limit=24)
+        candles = self.binance.get_klines(symbol=self.symbol, interval='5m', limit=1000)
 
         # Extrair os ranges (high - low) de cada candle
         ranges = [float(candle[2]) - float(candle[3]) for candle in candles]
@@ -174,21 +190,26 @@ class DefaultStrategy(Strategy):
         return np.median(ranges)
 
 class SafetyZone:
-    def __init__(self, max_price, price_offset):
+    def __init__(self, max_price, price_offset, n_ranges: int = 4):
         self._max_price = max_price
         self._price_offset = price_offset
-        self.q1 = None
-        self.q1 = None
-        self.q3 = None
-        self.counters = [0, 0, 0, 0]
+        self.n_ranges = n_ranges
+        self.price_limits = []
+        self.counters = []
+        
+        self._calculate_limits()
+        self._reset_counters() 
 
-        self._calculate_quartiles()
-
-    def _calculate_quartiles(self):
-        self.q1 = self.min_price + (self._price_offset+1)/4
-        self.q2 = self.min_price + (self._price_offset+1)/2
-        self.q3 = self.min_price + (self._price_offset+1)/4*3
-
+    def _calculate_limits(self):
+        if self.n_ranges < 1:
+            self.price_limits = []
+        for i in range(self.n_ranges+1):
+            limit = self.min_price + (self.price_offset/self.n_ranges)*i
+            self.price_limits.append(limit)
+        
+    def _reset_counters(self):
+        self.counters = [0 for i in range(self.n_ranges)]
+            
     @property
     def min_price(self):
         return self._max_price - self._price_offset
@@ -200,9 +221,9 @@ class SafetyZone:
     @max_price.setter
     def max_price(self, max_price):
         if max_price < self.min_price:
-            self.counters = [0, 0, 0, 0]
+            self.counters = self._reset_counters()
         self._max_price = max_price
-        self._calculate_quartiles()
+        self._calculate_limits()
         print(self)
 
     @property
@@ -212,33 +233,26 @@ class SafetyZone:
     @price_offset.setter
     def price_offset(self, price_offset):
         self._price_offset = price_offset
-        self._calculate_quartiles()
+        self._calculate_limits()
 
     @property
     def price_ranges(self):
-        return [
-            (self.min_price, self.q1),
-            (self.q1, self.q2),
-            (self.q2, self.q3),
-            (self.q3, self._max_price)
-        ]
+        return list(zip(self.price_limits[::2], self.price_limits[1::2]))
 
     def increase_range_counter(self, index):
-        self.counters[index] += 1
+        if index:
+            self.counters[index] += 1
     
     def decrease_range_counter(self, index):
-        print(self.counters)
-        self.counters[index] = self.counters[index] - 1 if self.counters[index] > 0 else 0
-        print(self.counters)
+        if index:
+            print(self.counters)
+            self.counters[index] = self.counters[index] - 1 if self.counters[index] > 0 else 0
+            print(self.counters)
         
     def __str__(self):
         header = f'========= SAFETY ZONE =========\n'
-        max_price = f'Max Price: {self._max_price}\n'
         price_offset = f'Price Offset: {self._price_offset}\n'
-        q1 = f'Q3: {self.q3}\n'
-        q2  = f'Q2: {self.q2}\n'
-        q3 = f'Q1: {self.q1}\n'
-        min_price = f'Min Price: {self.min_price}\n'
+        ranges = f'Ranges: {self.price_ranges}\n'
         counters = f'Counters: {self.counters}\n'
 
-        return header + price_offset + max_price +  q1 + q2 + q3 + min_price + counters
+        return header + price_offset + ranges + counters

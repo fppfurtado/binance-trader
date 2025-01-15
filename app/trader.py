@@ -68,7 +68,7 @@ def __main():
     cerebro.addstrategy(DefaultStrategy, binance=broker, target_profit=(0.05 / 100))
 
     start_datetime = datetime(2024, 12, 9)
-    # end_datetime = start_datetime + timedelta(hours=1)
+    # end_datetime = start_datetime + timedelta(hours=3)
     end_datetime = start_datetime + timedelta(days=30)
     candles_10s = broker.get_10s_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime)
     stake = 10000
