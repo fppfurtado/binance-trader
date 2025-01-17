@@ -65,11 +65,11 @@ def __main():
 
     cerebro = bt.Cerebro()
 
-    cerebro.addstrategy(DefaultStrategy, binance=broker, target_profit=(0.05 / 100))
+    cerebro.addstrategy(DefaultStrategy, binance=broker, target_profit=(2 / 100))
 
     start_datetime = datetime(2024, 12, 9)
     # end_datetime = start_datetime + timedelta(hours=3)
-    end_datetime = start_datetime + timedelta(days=30)
+    end_datetime = start_datetime + timedelta(days=5)
     candles_10s = broker.get_10s_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime)
     stake = 10000
 
@@ -108,8 +108,11 @@ def __main():
     print(f'Low Trends: {strategy.trend_counters[1]}')
     print(f'Undefined Trends: {strategy.trend_counters[2]}')
     print(f'Total Trends: {sum(strategy.trend_counters)}')
-    print(strategy.fisrt_zone)
-    print(strategy.safety_zone)
+    print(f'Max Price: {strategy.max_price}')
+    print(f'Total Entries: {int(cerebro.broker.get_orders_open()[-1].ref)/2}')
+    print(f'******* Open Orders *******\n{'\n'.join(map(str, cerebro.broker.get_orders_open()))}\n------------------------')
+    # print(strategy.fisrt_zone)
+    # print(strategy.safety_zone)
     # print(f' ---- Last Sell Order ----\n{strategy.pending_sell_orders[-1]}')
     # print(strategy.position)
     print('=====================')
