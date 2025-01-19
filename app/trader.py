@@ -73,26 +73,6 @@ def __main():
     #     print(support)
     #     time.sleep(1)
     
-def candles_to_dataframe(candles):
-    df = pd.DataFrame(
-            candles, 
-            columns=[
-                'datetime', 'open', 'high', 'low', 'close',
-                'volume', 'close_time', 'quote_volume', 'trades',
-                'taker_buy_base', 'taker_buy_quote', 'ignore'
-            ]
-        )
-    df['datetime'] = pd.to_datetime(df['datetime'], unit='ms')
-    # arr_date = df['datetime'].dt.to_pydatetime()
-    # df['datetime'] = pd.Series(arr_date, dtype=object)
-    # df['timestamp'] = datetime.utcfromtimestamp(df['timestamp'])
-    # df.set_index('timestamp', inplace=True)
-
-    for col in ['open', 'high', 'low', 'close', 'volume']:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
-
-    return df
-
 def __init():
     load_dotenv(dotenv_path='../.env', override=True)
     API_KEY = os.getenv('BINANCE_API_KEY')
