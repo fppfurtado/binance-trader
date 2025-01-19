@@ -38,6 +38,9 @@ class BaseClient(Protocol):
     def get_position(self, symbol: str):
         pass
 
+    def get_price_difference_median(interval, period):
+        pass
+
 class BinanceClient(BaseClient):
     def __init__(self, api_key, api_secret, symbol: str, candles_window: int = 250):
         self.client = Client(api_key, api_secret)
@@ -279,7 +282,7 @@ class BinanceClient(BaseClient):
             callback=self._process_kline_message
         )
 
-    def get_price_difference_median(interval, period):
+    def get_price_difference_median(interval, period = 1000):
         # Obtendo os candles mensais dos últimos 24 meses (períodos de 1 mês)
         candles = self.binance.get_klines(symbol=self.symbol, interval=interval, limit=period)
 
