@@ -16,7 +16,8 @@ def __main():
 
     cerebro = bt.Cerebro()
 
-    cerebro.addstrategy(DefaultStrategy, get_price_difference_median(Client.), target_profit=(1 / 100))
+    global broker
+    cerebro.addstrategy(DefaultStrategy, broker.get_price_difference_median('1m'), target_profit=(1 / 100))
 
     start_datetime = datetime(2024, 12, 9)
     end_datetime = start_datetime + timedelta(days=30)
