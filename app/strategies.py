@@ -17,7 +17,7 @@ class DefaultStrategy(Strategy):
         else:
             print('\r%s, %s' % (dt, txt))
 
-    def __init__(self, symbol: str = 'BTCUSDT', price_offset = 0, target_profit = 0.001):
+    def __init__(self, symbol: str = 'BTCUSDT', price_offset = 0, target_profit = 0.01):
         self.symbol = symbol
         self.price_offset = price_offset
         self.data = self.datas[0]
