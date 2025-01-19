@@ -72,24 +72,6 @@ def __main():
     #     support = analysis.get_support_price(broker.get_historical_data(asset_symbol))
     #     print(support)
     #     time.sleep(1)
-
-def get_candles_by_date(year, month, day, interval = '1m'):
-    date = datetime(year, month, day)
-    
-    start_time = datetime(date.year, date.month, date.day, 0, 0, 0)  # Start of the day (00:00:00)
-    end_time = start_time + timedelta(days=1)  # End of the day (23:59:59)
-    
-    start_timestamp = int(start_time.timestamp()) * 1000
-    end_timestamp = int(end_time.timestamp()) * 1000
-    
-    klines = broker.get_klines(asset_symbol, start_str=start_timestamp, end_str=end_timestamp)
-
-    start_timestamp_2 = klines[-1][0] + 1
-
-    klines.extend(broker.get_klines(asset_symbol, start_str=start_timestamp_2, end_str=end_timestamp))
-
-    return klines
-
     
 def candles_to_dataframe(candles):
     df = pd.DataFrame(
