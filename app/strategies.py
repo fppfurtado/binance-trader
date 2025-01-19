@@ -52,29 +52,31 @@ class DefaultStrategy(Strategy):
                 if current_price > (self.safety_zone.max_price + self.safety_zone.price_offset * 0.1) or current_price < self.safety_zone.min_price:
                     self.safety_zone.max_price = current_price
 
-        match self.get_market_trend():
-            # buy_sig
-            case MarketTrend.HIGH:
-                if self.trend != MarketTrend.HIGH:
-                    # self.log(f'******************* HIGH TREND ******************* {self.dataclose[0]}')
-                    self.trend = MarketTrend.HIGH
-                self.trend_counters[0] += 1
-                # self.execute_high_trend_strategy(bar_current, current_price)
-            case MarketTrend.LOW:
-                if self.trend != MarketTrend.LOW:
-                    # self.log(f'******************* LOW TREND ******************* {self.dataclose[0]}')
-                    self.trend = MarketTrend.LOW
-                self.trend_counters[1] += 1
-                # pass
-            case MarketTrend.UNDEFINED:
-                if self.trend != MarketTrend.UNDEFINED:
-                    # self.log(f'******************* UNDEFINED TREND ******************* {self.dataclose[0]}')
-                    self.trend = MarketTrend.UNDEFINED                
-                self.trend_counters[2] += 1
-                self.execute_high_trend_strategy(bar_current, current_price)
-                # for i in range(self.p.max_pending_sell_orders):
-                #     self.execute_high_trend_strategy(bar_current, current_price)
-                # pass
+        if current_price <= self.max_price * (1 - self.target_profit/10):
+
+            match self.get_market_trend():
+                # buy_sig
+                case MarketTrend.HIGH:
+                    if self.trend != MarketTrend.HIGH:
+                        # self.log(f'******************* HIGH TREND ******************* {self.dataclose[0]}')
+                        self.trend = MarketTrend.HIGH
+                    self.trend_counters[0] += 1
+                    # self.execute_high_trend_strategy(bar_current, current_price)
+                case MarketTrend.LOW:
+                    if self.trend != MarketTrend.LOW:
+                        # self.log(f'******************* LOW TREND ******************* {self.dataclose[0]}')
+                        self.trend = MarketTrend.LOW
+                    self.trend_counters[1] += 1
+                    # pass
+                case MarketTrend.UNDEFINED:
+                    if self.trend != MarketTrend.UNDEFINED:
+                        # self.log(f'******************* UNDEFINED TREND ******************* {self.dataclose[0]}')
+                        self.trend = MarketTrend.UNDEFINED                
+                    self.trend_counters[2] += 1
+                    self.execute_high_trend_strategy(bar_current, current_price)
+                    # for i in range(self.p.max_pending_sell_orders):
+                    #     self.execute_high_trend_strategy(bar_current, current_price)
+                    # pass
 
     def execute_high_trend_strategy(self, bar_current, current_price):
 
