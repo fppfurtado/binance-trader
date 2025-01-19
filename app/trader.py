@@ -16,7 +16,7 @@ def __main():
 
     cerebro = bt.Cerebro()
 
-    cerebro.addstrategy(DefaultStrategy, binance=broker, target_profit=(1 / 100))
+    cerebro.addstrategy(DefaultStrategy, get_price_difference_median(Client.), target_profit=(1 / 100))
 
     start_datetime = datetime(2024, 12, 9)
     end_datetime = start_datetime + timedelta(days=30)
@@ -64,16 +64,6 @@ def __init():
 
     global broker
     broker = BinanceClient(API_KEY, API_SECRET, asset_symbol)
-
-def get_price_difference_median(interval, period):
-        # Obtendo os candles mensais dos últimos 24 meses (períodos de 1 mês)
-        candles = self.binance.get_klines(symbol=self.symbol, interval=interval, limit=period)
-
-        # Extrair os ranges (high - low) de cada candle
-        ranges = [float(candle[2]) - float(candle[3]) for candle in candles]
-
-        # Calcular a mediana
-        return np.median(ranges)
 
 if __name__ == '__main__':
     __main()

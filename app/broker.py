@@ -278,3 +278,13 @@ class BinanceClient(BaseClient):
             symbol=self.symbol,
             callback=self._process_kline_message
         )
+
+    def get_price_difference_median(interval, period):
+        # Obtendo os candles mensais dos últimos 24 meses (períodos de 1 mês)
+        candles = self.binance.get_klines(symbol=self.symbol, interval=interval, limit=period)
+
+        # Extrair os ranges (high - low) de cada candle
+        ranges = [float(candle[2]) - float(candle[3]) for candle in candles]
+
+        # Calcular a mediana
+        return np.median(ranges)
