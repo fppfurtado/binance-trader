@@ -17,9 +17,9 @@ class DefaultStrategy(Strategy):
         else:
             print('\r%s, %s' % (dt, txt))
 
-    def __init__(self, binance, symbol: str = 'BTCUSDT', target_profit = 0.001):
-        self.binance = binance
+    def __init__(self, symbol: str = 'BTCUSDT', price_offset = 0, target_profit = 0.001):
         self.symbol = symbol
+        self.price_offset = price_offset
         self.data = self.datas[0]
         self.dataclose = self.datas[0].close
         self.stake_per_order = self.broker.cash / self.p.max_pending_sell_orders
@@ -177,9 +177,8 @@ class DefaultStrategy(Strategy):
 
     def _set_up_safety_zone(self, n_ranges):
         max_price = self.dataclose[0]
-        price_offset = self._calculate_timeframe_range_limits()
         
-        self.safety_zone = SafetyZone(max_price, price_offset, n_ranges)
+        self.safety_zone = SafetyZone(max_price, self.price_offset, n_ranges)
 
 class SafetyZone:
     def __init__(self, max_price, price_offset, n_ranges: int = 4):
