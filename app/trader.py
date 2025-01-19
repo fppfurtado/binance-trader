@@ -10,55 +10,6 @@ import pandas as pd
 asset_symbol: str = None
 broker: BaseClient = None
 
-def get_candles_by_date(year, month, day, interval = '1m'):
-    date = datetime(year, month, day)
-    
-    start_time = datetime(date.year, date.month, date.day, 0, 0, 0)  # Start of the day (00:00:00)
-    end_time = start_time + timedelta(days=1)  # End of the day (23:59:59)
-    
-    start_timestamp = int(start_time.timestamp()) * 1000
-    end_timestamp = int(end_time.timestamp()) * 1000
-    
-    klines = broker.get_klines(asset_symbol, start_str=start_timestamp, end_str=end_timestamp)
-
-    start_timestamp_2 = klines[-1][0] + 1
-
-    klines.extend(broker.get_klines(asset_symbol, start_str=start_timestamp_2, end_str=end_timestamp))
-
-    return klines
-
-    
-def candles_to_dataframe(candles):
-    df = pd.DataFrame(
-            candles, 
-            columns=[
-                'datetime', 'open', 'high', 'low', 'close',
-                'volume', 'close_time', 'quote_volume', 'trades',
-                'taker_buy_base', 'taker_buy_quote', 'ignore'
-            ]
-        )
-    df['datetime'] = pd.to_datetime(df['datetime'], unit='ms')
-    # arr_date = df['datetime'].dt.to_pydatetime()
-    # df['datetime'] = pd.Series(arr_date, dtype=object)
-    # df['timestamp'] = datetime.utcfromtimestamp(df['timestamp'])
-    # df.set_index('timestamp', inplace=True)
-
-    for col in ['open', 'high', 'low', 'close', 'volume']:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
-
-    return df
-
-def __init():
-    load_dotenv(dotenv_path='../.env', override=True)
-    API_KEY = os.getenv('BINANCE_API_KEY')
-    API_SECRET = os.getenv('BINANCE_API_SECRET')
-    
-    global asset_symbol
-    asset_symbol = input('Informe o Ativo a ser operado: ').upper()
-
-    global broker
-    broker = BinanceClient(API_KEY, API_SECRET, asset_symbol)
-
 def __main():
 
     __init()
@@ -121,6 +72,55 @@ def __main():
     #     support = analysis.get_support_price(broker.get_historical_data(asset_symbol))
     #     print(support)
     #     time.sleep(1)
+
+def get_candles_by_date(year, month, day, interval = '1m'):
+    date = datetime(year, month, day)
+    
+    start_time = datetime(date.year, date.month, date.day, 0, 0, 0)  # Start of the day (00:00:00)
+    end_time = start_time + timedelta(days=1)  # End of the day (23:59:59)
+    
+    start_timestamp = int(start_time.timestamp()) * 1000
+    end_timestamp = int(end_time.timestamp()) * 1000
+    
+    klines = broker.get_klines(asset_symbol, start_str=start_timestamp, end_str=end_timestamp)
+
+    start_timestamp_2 = klines[-1][0] + 1
+
+    klines.extend(broker.get_klines(asset_symbol, start_str=start_timestamp_2, end_str=end_timestamp))
+
+    return klines
+
+    
+def candles_to_dataframe(candles):
+    df = pd.DataFrame(
+            candles, 
+            columns=[
+                'datetime', 'open', 'high', 'low', 'close',
+                'volume', 'close_time', 'quote_volume', 'trades',
+                'taker_buy_base', 'taker_buy_quote', 'ignore'
+            ]
+        )
+    df['datetime'] = pd.to_datetime(df['datetime'], unit='ms')
+    # arr_date = df['datetime'].dt.to_pydatetime()
+    # df['datetime'] = pd.Series(arr_date, dtype=object)
+    # df['timestamp'] = datetime.utcfromtimestamp(df['timestamp'])
+    # df.set_index('timestamp', inplace=True)
+
+    for col in ['open', 'high', 'low', 'close', 'volume']:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    return df
+
+def __init():
+    load_dotenv(dotenv_path='../.env', override=True)
+    API_KEY = os.getenv('BINANCE_API_KEY')
+    API_SECRET = os.getenv('BINANCE_API_SECRET')
+    
+    global asset_symbol
+    asset_symbol = input('Informe o Ativo a ser operado: ').upper()
+
+    global broker
+    broker = BinanceClient(API_KEY, API_SECRET, asset_symbol)
 
 if __name__ == '__main__':
     __main()
