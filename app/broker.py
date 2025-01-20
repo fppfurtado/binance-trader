@@ -9,6 +9,7 @@ from threading import Lock
 from binance.client import Client
 from binance.ws.streams import ThreadedWebsocketManager
 import logging
+import numpy as np
 
 class BaseClient(Protocol):
     def get_system_status() -> dict:
@@ -23,7 +24,7 @@ class BaseClient(Protocol):
     def get_current_price(self, symbol: str) -> decimal:
         pass
 
-    def get_klines(self, symbol: str, interval: str, limit:int, start_str, end_str):
+    def get_klines(self, symbol: str, interval: str, limit:int, start_time, end_time):
         pass
 
     def get_10s_klines(self, symbol: str, start_time, end_time=None):
@@ -72,11 +73,124 @@ class BinanceClient(BaseClient):
     def get_current_price(self, symbol: str) -> decimal:
         return self.client.get_symbol_ticker(symbol=symbol)
 
-    def get_klines(self, symbol: str, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit:int = 1000, start_str = None, end_str = None):
-        if start_str and end_str:
-            return self.client.get_historical_klines(symbol=self.symbol, interval=interval, limit=limit, start_str=start_str, end_str=end_str) 
+    def get_klines(self, symbol: str, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit:int = 1000, start_time = None, end_time = None):
+        if start_time and end_time:
+            """
+            Fetch 1s klines and aggregate them to 10s klines
+            
+            Parameters:
+            - symbol: Trading pair (e.g., 'BTCUSDT')
+            - start_time: Start time in datetime format
+            - end_time: End time in datetime format (default: current time)
+            """
+            # Convert times to milliseconds timestamp
+            start_ts = int(start_time.timestamp() * 1000)
+            if end_time is None:
+                end_time = datetime.now()
+            end_ts = int(end_time.timestamp() * 1000)
+            
+            all_klines = []
+            current_ts = start_ts
+            
+            print(f"Fetching 1s klines for {symbol} from {start_time} to {end_time}")
+            
+            while current_ts < end_ts:
+                try:
+                    # Fetch batch of 1s klines (1000 is the maximum limit per request)
+                    klines = self.client.get_klines(
+                        symbol=symbol,
+                        interval=interval,
+                        startTime=current_ts,
+                        endTime=min(current_ts + (1000 * 1000), end_ts),  # 1s * 1000 candles
+                        limit=1000
+                    )
+                    
+                    if not klines:
+                        print("No more klines found")
+                        break
+                        
+                    # Process klines
+                    for k in klines:
+                        kline_data = {
+                            'timestamp': datetime.fromtimestamp(k[0] / 1000),
+                            'open': float(k[1]),
+                            'high': float(k[2]),
+                            'low': float(k[3]),
+                            'close': float(k[4]),
+                            'volume': float(k[5]),
+                            'close_time': datetime.fromtimestamp(k[6] / 1000)
+                            # 'quote_volume': float(k[7]),
+                            # 'trades': int(k[8]),
+                            # 'taker_buy_volume': float(k[9]),
+                            # 'taker_buy_quote_volume': float(k[10])
+                        }
+                        all_klines.append(kline_data)
+                    
+                    # Update timestamp for next batch
+                    current_ts = klines[-1][6] + 1
+                    
+                    # Print progress
+                    progress = (current_ts - start_ts) / (end_ts - start_ts) * 100
+                    print(f"\rProgress: {progress:.2f}% - Klines collected: {len(all_klines)}", end='')
+                    
+                    # Rate limiting
+                    time.sleep(0.1)
+                    
+                except Exception as e:
+                    print(f"\nError fetching klines: {e}")
+                    time.sleep(1)
+                    continue
+            
+            print("\nKline collection completed")
+            
+            # Convert to DataFrame
+            # df = pd.DataFrame(all_klines)
+            # df = candles_to_dataframe(all_klines)
+            
+            # Create 10-second groups
+            # df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+            # df['10s_group'] = df['timestamp'].dt.floor('10s')
+            # df.set_index('timestamp', inplace=True)
+            
+            # Aggregate to 10-second klines
+            # agg_dict = {
+            #     'open': 'first',
+            #     'high': 'max',
+            #     'low': 'min',
+            #     'close': 'last',
+            #     'volume': 'sum'
+                # 'quote_volume': 'sum',
+                # 'trades': 'sum',
+                # 'taker_buy_volume': 'sum',
+                # 'taker_buy_quote_volume': 'sum'
+            # }
+            
+            # df_10s = df.groupby('10s_group').agg(agg_dict).reset_index()
+            # df_10s = df.groupby('10s_group').agg(agg_dict)
+            # df_10s = df_10s.rename(columns={'10s_group': 'timestamp'})
+            
+            return all_klines     
+
+            # return self.client.get_historical_klines(symbol=self.symbol, interval=interval, limit=limit, start_time=start_time, end_time=end_time) 
         else:
             return self.client.get_klines(symbol=self.symbol, interval=interval, limit=limit)
+
+    def candles_to_dataframe(self, candles):
+        df = pd.DataFrame(
+                candles, 
+                columns=[
+                    'timestamp', 'open', 'high', 'low', 'close',
+                    'volume', 'close_time', 'quote_volume', 'trades',
+                    'taker_buy_base', 'taker_buy_quote', 'ignore'
+                ]
+            )
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+        df.set_index('timestamp', inplace=True)
+
+        for col in ['open', 'high', 'low', 'close', 'volume']:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        return df
 
     def get_10s_klines(self, symbol, start_time, end_time=None):
         """
@@ -282,9 +396,9 @@ class BinanceClient(BaseClient):
             callback=self._process_kline_message
         )
 
-    def get_price_difference_median(interval, period = 1000):
+    def get_price_difference_median(self, interval, period = 1000):
         # Obtendo os candles mensais dos últimos 24 meses (períodos de 1 mês)
-        candles = self.binance.get_klines(symbol=self.symbol, interval=interval, limit=period)
+        candles = self.get_klines(symbol=self.symbol, interval=interval, limit=period)
 
         # Extrair os ranges (high - low) de cada candle
         ranges = [float(candle[2]) - float(candle[3]) for candle in candles]
