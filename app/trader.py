@@ -20,11 +20,13 @@ def __main():
     cerebro.addstrategy(DefaultStrategy, broker.get_price_difference_median('1m'), target_profit=(1 / 100))
 
     start_datetime = datetime(2024, 12, 9)
-    end_datetime = start_datetime + timedelta(days=30)
-    candles_10s = broker.get_10s_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime)
+    end_datetime = start_datetime + timedelta(hours=3)
+    # end_datetime = start_datetime + timedelta(days=1)
+    candles = broker.get_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime, interval='1m')
+    df_candles = broker.candles_to_dataframe(candles)
     stake = 10000
 
-    data_feed = bt.feeds.PandasData(dataname=candles_10s)
+    data_feed = bt.feeds.PandasData(dataname=df_candles)
     cerebro.adddata(data_feed)
     cerebro.broker.set_cash(stake)
 
