@@ -6,7 +6,6 @@ import numpy as np
 
 class DefaultStrategy(Strategy):
     params = (
-        ('symbol', 'BTCUSDT'),
         ('stake', 10000),
         ('target_profit', 0.01),
         ('max_open_trades', 1),     # Limite máximo de operações abertas
@@ -20,9 +19,7 @@ class DefaultStrategy(Strategy):
         else:
             print('\r%s, %s' % (dt, txt))
 
-    def __init__(self, symbol: str = 'BTCUSDT', target_profit = 0.01):
-        self.symbol = symbol
-        self.target_profit = target_profit
+    def __init__(self):
         self.data = self.datas[0]
         self.close = self.datas[0].close
         self.stake_per_order = self.p.stake / self.p.max_open_trades
@@ -43,14 +40,14 @@ class DefaultStrategy(Strategy):
             self.max_price = current_price
 
         if self.broker.cash > 0 and len(self.open_sell_orders) < self.p.max_open_trades and self.has_buy_signal():
-            buy_price_limit = self.max_price * (1 - self.target_profit)
-            buy_price = min(current_price * (1 - self.target_profit/2), self.max_price * (1 - self.target_profit))
+            buy_price_limit = self.max_price * (1 - self.p.target_profit)
+            buy_price = min(current_price * (1 - self.p.target_profit/2), self.max_price * (1 - self.p.target_profit))
             order_expiration = timedelta(hours=6)
             main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self.stake_per_order/buy_price,transmit=False, valid=order_expiration)
 
             if main_order:
                 position = main_order.price * main_order.size
-                sell_price = (position + (self.stake_per_order * self.target_profit))/main_order.size
+                sell_price = (position + (self.stake_per_order * self.p.target_profit))/main_order.size
                 take_profit_order = self.sell(parent=main_order, exectype=Order.Limit, price=sell_price, size=main_order.size, transmit=True, parent_price=main_order.price, range_index=None)
                         
                 self.open_sell_orders.append(take_profit_order)                    

@@ -17,17 +17,18 @@ def __main():
     cerebro = bt.Cerebro()
 
     global broker
-    cerebro.addstrategy(DefaultStrategy)
+    cerebro.addstrategy(DefaultStrategy, target_profit=(0.5 / 100))
 
     start_datetime = datetime(2024, 12, 9)
     # end_datetime = start_datetime + timedelta(hours=6)
-    end_datetime = start_datetime + timedelta(days=1)
+    end_datetime = start_datetime + timedelta(days=5)
     candles = broker.get_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime, interval='1m')
     df_candles = broker.candles_to_dataframe(candles)
-    stake = 10000
-
+    
     data_feed = bt.feeds.PandasData(dataname=df_candles)
     cerebro.adddata(data_feed)
+
+    stake = 10000
     cerebro.broker.set_cash(stake)
 
     # Run over everything
@@ -52,7 +53,7 @@ def print_results(cerebro, results):
 
     print("====== PERFORMANCE REPORT ======")
     print(f'START PORTFOLIO VALUE: {strategy.p.stake}')
-    print(f'STAKE: {strategy.p.stake}')
+    print(f'CASH: {cerebro.broker.cash}')
     print(f'TARGET PROFIT: {strategy.p.target_profit * 100}%')
     print(f'POSITION SIZE: {strategy.position.size}')
     print(f'POSITION PRICE: {strategy.position.price}')
