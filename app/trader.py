@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import analysis
 from broker import BaseClient, BinanceClient
 import backtrader as bt
+import backtrader.analyzers as btanalyzers
 from strategies import DefaultStrategy
 import pandas as pd
 import logging.config
@@ -22,7 +23,15 @@ def __main():
     cerebro = bt.Cerebro()
 
     global broker
-    cerebro.addstrategy(DefaultStrategy, target_profit=(0.5 / 100))
+    # cerebro.addstrategy(DefaultStrategy, target_profit=(0.5 / 100))
+    cerebro.optstrategy(
+        DefaultStrategy,
+        target_profit = [0.001, 0.0025, 0.005, 0.075, 0.01, 0.02, 0.03],
+        buy_price_limit_enable = [True, False],
+        buy_price_limit_target_profit_percent = [0.5, 1, 1.5],
+        buy_price_discount_enable = [True, False],
+        buy_price_discount_target_profit_percent = [0.5, 1]
+    )
 
     start_datetime = datetime(2024, 11, 1)
     # end_datetime = start_datetime + timedelta(hours=6)
@@ -36,11 +45,17 @@ def __main():
     stake = 10000
     cerebro.broker.set_cash(stake)
 
+    # adicionando analyzers
+    cerebro.addanalyzer(btanalyzers.SharpeRatio, _name = "sharpe", riskfreerate=0.06)
+    cerebro.addanalyzer(btanalyzers.DrawDown, _name = "drawdown")
+    cerebro.addanalyzer(btanalyzers.Returns, _name = "returns")
+
     # Run over everything
     results = cerebro.run()
     
     # Resumo do desempenho    
-    print_results(cerebro, results)
+    # print_results(cerebro, results)
+    print_opt_results(results)
     
 def __init():
 
@@ -85,6 +100,20 @@ def print_results(cerebro, results):
         message = message + value
 
     logger.info(message)
+
+def print_opt_results(results):
+    par_list = [[x[0].params.target_profit, 
+             x[0].params.buy_price_limit_enable,
+             x[0].params.buy_price_limit_target_profit_percent,
+             x[0].params.buy_price_discount_enable,
+             x[0].params.buy_price_discount_target_profit_percent,
+             x[0].analyzers.returns.get_analysis()['rnorm100'], 
+             x[0].analyzers.drawdown.get_analysis()['max']['drawdown'],
+             x[0].analyzers.sharpe.get_analysis()['sharperatio']
+            ] for x in results]
+        	
+    par_df = pd.DataFrame(par_list, columns = ['target_profit','bpl', 'bpl_perc', 'bpd', 'bpd_perc', 'return', 'dd', 'sharpe'])
+    print(par_df.sort_values(by='return', ascending=False))
 
 def setup_logging():
     config_file = pathlib.Path('logging.config.json')
