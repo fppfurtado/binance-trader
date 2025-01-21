@@ -22,7 +22,7 @@ def __main():
     cerebro = bt.Cerebro()
 
     global broker
-    cerebro.addstrategy(DefaultStrategy, target_profit=(0.75 / 100), buy_price_limit_target_profit_percent=0.5, buy_price_discount_target_profit_percent=0.5)
+    cerebro.addstrategy(DefaultStrategy, target_profit=(2 / 100), buy_price_limit_target_profit_percent=1, buy_price_discount_target_profit_percent=0.5, hours_to_expirate=1)
 
     start_datetime = datetime(2024, 11, 22)
     # end_datetime = start_datetime + timedelta(hours=6)
