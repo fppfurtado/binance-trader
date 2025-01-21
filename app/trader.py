@@ -5,6 +5,7 @@ import analysis
 from broker import BaseClient, BinanceClient
 import backtrader as bt
 import backtrader.analyzers as btanalyzers
+from backtrader import TimeFrame
 from strategies import DefaultStrategy
 import pandas as pd
 import logging.config
@@ -35,7 +36,7 @@ def __main():
 
     start_datetime = datetime(2024, 11, 1)
     # end_datetime = start_datetime + timedelta(hours=6)
-    end_datetime = start_datetime + timedelta(days=1)
+    end_datetime = start_datetime + timedelta(days=2)
     candles = broker.get_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime, interval='1m')
     df_candles = broker.candles_to_dataframe(candles)
     
@@ -46,9 +47,9 @@ def __main():
     cerebro.broker.set_cash(stake)
 
     # adicionando analyzers
-    cerebro.addanalyzer(btanalyzers.SharpeRatio, _name = "sharpe", riskfreerate=0.06)
+    cerebro.addanalyzer(btanalyzers.SharpeRatio, _name = "sharpe", timeframe=TimeFrame.Days, riskfreerate=0.06)
     cerebro.addanalyzer(btanalyzers.DrawDown, _name = "drawdown")
-    cerebro.addanalyzer(btanalyzers.Returns, _name = "returns")
+    cerebro.addanalyzer(btanalyzers.Returns, _name = "returns", timeframe=TimeFrame.NoTimeFrame)
 
     # Run over everything
     results = cerebro.run()
@@ -101,19 +102,19 @@ def print_results(cerebro, results):
 
     logger.info(message)
 
-def print_opt_results(results):
+def print_opt_results(results):    
     par_list = [[x[0].params.target_profit, 
              x[0].params.buy_price_limit_enable,
              x[0].params.buy_price_limit_target_profit_percent,
              x[0].params.buy_price_discount_enable,
              x[0].params.buy_price_discount_target_profit_percent,
-             x[0].analyzers.returns.get_analysis()['rnorm100'], 
+             x[0].analyzers.returns.get_analysis()['rtot'], 
              x[0].analyzers.drawdown.get_analysis()['max']['drawdown'],
              x[0].analyzers.sharpe.get_analysis()['sharperatio']
             ] for x in results]
         	
     par_df = pd.DataFrame(par_list, columns = ['target_profit','bpl', 'bpl_perc', 'bpd', 'bpd_perc', 'return', 'dd', 'sharpe'])
-    print(par_df.sort_values(by='return', ascending=False))
+    print(par_df.sort_values(by=['return', 'sharpe', 'dd'], ascending=False))
 
 def setup_logging():
     config_file = pathlib.Path('logging.config.json')
