@@ -21,8 +21,3 @@ def is_bullish(candle: []):
 def is_bearish(candle: []):
     ''' candle: [timestamp, open, high, low, close, ...] '''
     return candle[4] < candle[1]
-
-class MarketTrend(Enum):
-    HIGH = 'HIGH'
-    LOW = 'LOW'
-    UNDEFINED = 'UNDEFINED'

@@ -1,6 +1,5 @@
 from backtrader import Strategy, Order, Sizer
 import analysis as a
-from analysis import MarketTrend
 from datetime import datetime, timedelta
 import numpy as np
 import logging
