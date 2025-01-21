@@ -27,7 +27,7 @@ def __main():
     # cerebro.addstrategy(DefaultStrategy, target_profit=(0.5 / 100))
     cerebro.optstrategy(
         DefaultStrategy,
-        target_profit = [0.001, 0.0025, 0.005, 0.075, 0.01, 0.02, 0.03],
+        target_profit = [0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.03],
         buy_price_limit_enable = [True, False],
         buy_price_limit_target_profit_percent = [0.5, 1, 1.5],
         buy_price_discount_enable = [True, False],
@@ -37,7 +37,7 @@ def __main():
 
     start_datetime = datetime(2024, 11, 22)
     # end_datetime = start_datetime + timedelta(hours=6)
-    end_datetime = start_datetime + timedelta(days=3)
+    end_datetime = start_datetime + timedelta(days=5)
     candles = broker.get_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime, interval='1m')
     df_candles = broker.candles_to_dataframe(candles)
     
