@@ -22,11 +22,11 @@ def __main():
     cerebro = bt.Cerebro()
 
     global broker
-    cerebro.addstrategy(DefaultStrategy, target_profit=(0.5 / 100))
+    cerebro.addstrategy(DefaultStrategy, target_profit=(0.1 / 100), buy_price_limit_target_profit_percent=0.5, buy_price_discount_target_profit_percent=1)
 
     start_datetime = datetime(2024, 11, 1)
     # end_datetime = start_datetime + timedelta(hours=6)
-    end_datetime = start_datetime + timedelta(days=1)
+    end_datetime = start_datetime + timedelta(days=2)
     candles = broker.get_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime, interval='1m')
     df_candles = broker.candles_to_dataframe(candles)
     
