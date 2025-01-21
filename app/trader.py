@@ -6,7 +6,12 @@ from broker import BaseClient, BinanceClient
 import backtrader as bt
 from strategies import DefaultStrategy
 import pandas as pd
+import logging.config
+import json
+import pathlib
+import atexit
 
+logger = logging.getLogger('trader')
 asset_symbol: str = None
 broker: BaseClient = None
 
@@ -17,11 +22,11 @@ def __main():
     cerebro = bt.Cerebro()
 
     global broker
-    cerebro.addstrategy(DefaultStrategy, target_profit=(0.5 / 100))
+    cerebro.addstrategy(DefaultStrategy, target_profit=(0.75 / 100))
 
-    start_datetime = datetime(2024, 12, 9)
-    # end_datetime = start_datetime + timedelta(hours=6)
-    end_datetime = start_datetime + timedelta(days=5)
+    start_datetime = datetime(2024, 11, 1)
+    end_datetime = start_datetime + timedelta(hours=6)
+    # end_datetime = start_datetime + timedelta(days=90)
     candles = broker.get_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime, interval='1m')
     df_candles = broker.candles_to_dataframe(candles)
     
@@ -38,6 +43,11 @@ def __main():
     print_results(cerebro, results)
     
 def __init():
+
+    setup_logging()
+
+    global logger
+
     load_dotenv(dotenv_path='../.env', override=True)
     API_KEY = os.getenv('BINANCE_API_KEY')
     API_SECRET = os.getenv('BINANCE_API_SECRET')
@@ -67,6 +77,17 @@ def print_results(cerebro, results):
     print(f'******* OPEN ORDERS *******')
     print(f'{'\n------------------------\n'.join(map(str, cerebro.broker.get_orders_open()))}\n')
     print('=====================')
+
+def setup_logging():
+    config_file = pathlib.Path('logging.config.json')
+    with open(config_file) as f_in:
+        config = json.load(f_in)
+
+    logging.config.dictConfig(config)
+    queue_handler = logging.getHandlerByName("queue_handler")
+    if queue_handler is not None:
+        queue_handler.listener.start()
+        atexit.register(queue_handler.listener.stop)
 
 if __name__ == '__main__':
     __main()
