@@ -61,22 +61,29 @@ def __init():
 def print_results(cerebro, results):
     strategy = results[0]
 
-    print("====== PERFORMANCE REPORT ======")
-    print(f'START PORTFOLIO VALUE: {strategy.p.stake}')
-    print(f'CASH: {cerebro.broker.cash}')
-    print(f'TARGET PROFIT: {strategy.p.target_profit * 100}%')
-    print(f'POSITION SIZE: {strategy.position.size}')
-    print(f'POSITION PRICE: {strategy.position.price}')
-    print(f'BUYS EXECUTED: {len(strategy.executed_buy_orders)}')
-    print(f'SELLS EXECUTED: {len(strategy.executed_sell_orders)}')
-    print(f'TOTAL PROFIT: {strategy.total_profit} ({(strategy.total_profit/strategy.p.stake*100):.2f}%)')
-    print(f'MAX PRICE: {strategy.max_price}')
-    print(f'TOTAL TRADES: {int(cerebro.broker.get_orders_open()[-1].ref)/2}')
-    print(f'FINAL PORTFOLIO VALUE: {cerebro.broker.getvalue()}')
-    print('\n')
-    print(f'******* OPEN ORDERS *******')
-    print(f'{'\n------------------------\n'.join(map(str, cerebro.broker.get_orders_open()))}\n')
-    print('=====================')
+    results = {}
+
+    results.update({'general_header': '\n====== PERFORMANCE REPORT ======\n'})
+    results.update({'start_portfolio_value': f'START PORTFOLIO VALUE: {strategy.p.stake}\n'})
+    results.update({'cash': f'CASH: {cerebro.broker.cash}\n'})
+    results.update({'target_profit': f'TARGET PROFIT: {strategy.p.target_profit * 100}%\n'})
+    results.update({'position_size': f'POSITION SIZE: {strategy.position.size}\n'})
+    results.update({'position_price': f'POSITION PRICE: {strategy.position.price}\n'})
+    results.update({'buys_executed': f'BUYS EXECUTED: {len(strategy.executed_buy_orders)}\n'})
+    results.update({'sells_executed': f'SELLS EXECUTED: {len(strategy.executed_sell_orders)}\n'})
+    results.update({'total_profit': f'TOTAL PROFIT: {strategy.total_profit} ({(strategy.total_profit/strategy.p.stake*100):.2f}%)\n'})
+    results.update({'max_price': f'MAX PRICE: {strategy.max_price}\n'})
+    results.update({'total_trades': f'TOTAL TRADES: {int(cerebro.broker.get_orders_open()[-1].ref)/2}\n'})
+    results.update({'final_portfolio_value': f'FINAL PORTFOLIO VALUE: {cerebro.broker.getvalue()}\n'})
+    results.update({'orders_header': f'******* OPEN ORDERS *******\n'})
+    results.update({'orders': f'{'\n------------------------\n'.join(map(str, cerebro.broker.get_orders_open()))}\n\n'})
+    
+    message = ''
+
+    for key, value in results.items():
+        message = message + value
+
+    logger.info(message)
 
 def setup_logging():
     config_file = pathlib.Path('logging.config.json')
