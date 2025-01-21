@@ -31,12 +31,13 @@ def __main():
         buy_price_limit_enable = [True, False],
         buy_price_limit_target_profit_percent = [0.5, 1, 1.5],
         buy_price_discount_enable = [True, False],
-        buy_price_discount_target_profit_percent = [0.5, 1]
+        buy_price_discount_target_profit_percent = [0.5, 1],
+        hours_to_expirate = [1, 2, 4, 6, 12]
     )
 
     start_datetime = datetime(2024, 11, 22)
     # end_datetime = start_datetime + timedelta(hours=6)
-    end_datetime = start_datetime + timedelta(days=30)
+    end_datetime = start_datetime + timedelta(days=2)
     candles = broker.get_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime, interval='1m')
     df_candles = broker.candles_to_dataframe(candles)
     
@@ -108,12 +109,13 @@ def print_opt_results(results):
              x[0].params.buy_price_limit_target_profit_percent,
              x[0].params.buy_price_discount_enable,
              x[0].params.buy_price_discount_target_profit_percent,
+             x[0].params.hours_to_expirate,
              x[0].analyzers.returns.get_analysis()['rtot'], 
              x[0].analyzers.drawdown.get_analysis()['max']['drawdown'],
              x[0].analyzers.sharpe.get_analysis()['sharperatio']
             ] for x in results]
         	
-    par_df = pd.DataFrame(par_list, columns = ['target_profit','bpl', 'bpl_perc', 'bpd', 'bpd_perc', 'return', 'dd', 'sharpe'])
+    par_df = pd.DataFrame(par_list, columns = ['target_profit','bpl', 'bpl_perc', 'bpd', 'bpd_perc', 'hours_to_expirate','return', 'dd', 'sharpe'])
     print(par_df.sort_values(by=['return', 'sharpe', 'dd'], ascending=False))
 
 def setup_logging():
