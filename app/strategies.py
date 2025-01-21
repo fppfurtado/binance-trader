@@ -15,7 +15,8 @@ class DefaultStrategy(Strategy):
         ('buy_price_limit_enable', True),
         ('buy_price_limit_target_profit_percent', 1),
         ('buy_price_discount_enable', True),
-        ('buy_price_discount_target_profit_percent', 0.5)
+        ('buy_price_discount_target_profit_percent', 0.5),
+        ('hours_to_expirate', 6)
     )
 
     def log(self, txt, dt=None, carriage_return=False):
@@ -59,10 +60,10 @@ class DefaultStrategy(Strategy):
                 self.p.buy_price_limit_target_profit_percent = 0
             if not self.p.buy_price_discount_enable:
                 self.p.buy_price_discount_target_profit_percent = 0
-                
+
             buy_price_limit = self.max_price * (1 - self.p.target_profit * self.p.buy_price_limit_target_profit_percent)
             buy_price = min(current_price * (1 - self.p.target_profit * self.p.buy_price_discount_target_profit_percent), buy_price_limit)
-            order_expiration = timedelta(hours=6)
+            order_expiration = timedelta(hours=self.p.hours_to_expirate)
             main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self.stake_per_order/buy_price,transmit=False, valid=order_expiration)
 
             if main_order:
