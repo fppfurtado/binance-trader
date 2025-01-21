@@ -12,6 +12,8 @@ import logging
 import numpy as np
 
 class BaseClient(Protocol):
+    logger = logging.getLogger('trader')
+
     def get_system_status() -> dict:
         pass
 
@@ -92,7 +94,7 @@ class BinanceClient(BaseClient):
             all_klines = []
             current_ts = start_ts
             
-            print(f"Fetching 1s klines for {symbol} from {start_time} to {end_time}")
+            self.logger.info(f"Fetching 1s klines for {symbol} from {start_time} to {end_time}")
             
             while current_ts < end_ts:
                 try:
@@ -106,7 +108,7 @@ class BinanceClient(BaseClient):
                     )
                     
                     if not klines:
-                        print("No more klines found")
+                        self.logger.info("No more klines found")
                         break
                         
                     # Process klines
@@ -137,41 +139,13 @@ class BinanceClient(BaseClient):
                     time.sleep(0.1)
                     
                 except Exception as e:
-                    print(f"\nError fetching klines: {e}")
+                    self.logger.error(f"\nError fetching klines: {e}")
                     time.sleep(1)
                     continue
             
-            print("\nKline collection completed")
-            
-            # Convert to DataFrame
-            # df = pd.DataFrame(all_klines)
-            # df = candles_to_dataframe(all_klines)
-            
-            # Create 10-second groups
-            # df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
-            # df['10s_group'] = df['timestamp'].dt.floor('10s')
-            # df.set_index('timestamp', inplace=True)
-            
-            # Aggregate to 10-second klines
-            # agg_dict = {
-            #     'open': 'first',
-            #     'high': 'max',
-            #     'low': 'min',
-            #     'close': 'last',
-            #     'volume': 'sum'
-                # 'quote_volume': 'sum',
-                # 'trades': 'sum',
-                # 'taker_buy_volume': 'sum',
-                # 'taker_buy_quote_volume': 'sum'
-            # }
-            
-            # df_10s = df.groupby('10s_group').agg(agg_dict).reset_index()
-            # df_10s = df.groupby('10s_group').agg(agg_dict)
-            # df_10s = df_10s.rename(columns={'10s_group': 'timestamp'})
+            self.logger.info("\nKline collection completed")
             
             return all_klines     
-
-            # return self.client.get_historical_klines(symbol=self.symbol, interval=interval, limit=limit, start_time=start_time, end_time=end_time) 
         else:
             return self.client.get_klines(symbol=self.symbol, interval=interval, limit=limit)
 
@@ -210,7 +184,7 @@ class BinanceClient(BaseClient):
         all_klines = []
         current_ts = start_ts
         
-        print(f"Fetching 1s klines for {symbol} from {start_time} to {end_time}")
+        self.logger.info(f"Fetching 1s klines for {symbol} from {start_time} to {end_time}")
         
         while current_ts < end_ts:
             try:
@@ -224,7 +198,7 @@ class BinanceClient(BaseClient):
                 )
                 
                 if not klines:
-                    print("No more klines found")
+                    self.logger.info("No more klines found")
                     break
                     
                 # Process klines
@@ -249,17 +223,17 @@ class BinanceClient(BaseClient):
                 
                 # Print progress
                 progress = (current_ts - start_ts) / (end_ts - start_ts) * 100
-                print(f"\rProgress: {progress:.2f}% - Klines collected: {len(all_klines)}", end='')
+                self.logger.info(f"\rProgress: {progress:.2f}% - Klines collected: {len(all_klines)}")
                 
                 # Rate limiting
                 time.sleep(0.1)
                 
             except Exception as e:
-                print(f"\nError fetching klines: {e}")
+                self.logger.error(f"\nError fetching klines: {e}")
                 time.sleep(1)
                 continue
         
-        print("\nKline collection completed")
+        self.logger.info("\nKline collection completed")
         
         # Convert to DataFrame
         df = pd.DataFrame(all_klines)
@@ -333,7 +307,7 @@ class BinanceClient(BaseClient):
                 self.last_trade = msg
                             
         except Exception as e:
-            logger.error(f"Error processing trade: {e}")
+            self.logger.error(f"Error processing trade: {e}")
 
     def create_candle(self):
         """Create a candle from collected trades"""
@@ -360,7 +334,7 @@ class BinanceClient(BaseClient):
             self.trades = []  # Clear trades
             
             # Log candle
-            logger.info(
+            self.logger.info(
                 f"New candle: Time={candle['timestamp']}, "
                 f"O={candle['open']:.2f}, H={candle['high']:.2f}, "
                 f"L={candle['low']:.2f}, C={candle['close']:.2f}, "
@@ -370,7 +344,7 @@ class BinanceClient(BaseClient):
             return candle
             
         except Exception as e:
-            logger.error(f"Error creating candle: {e}")
+            self.logger.error(f"Error creating candle: {e}")
             self.trades = []  # Clear trades on error
     
     def get_last_trade(self) -> dict:
