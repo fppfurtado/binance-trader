@@ -33,16 +33,21 @@ class DefaultStrategy(Strategy):
         self.executed_sell_orders = []
         self.total_profit = 0
         self.bar_executed = None
-        self.max_price = 0
+        self.max_price = -1
+        self.min_price = -1
         
     def next(self):
+        # rastreia preço máximo
+        if self.data.high[0] > self.max_price:
+            self.max_price = self.data.high[0]
+
+        #rastreia preço mínimo
+        if self.min_price < 0 or self.data.low[0] < self.min_price:
+            self.min_price = self.data.low[0]
 
         # self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.open_sell_orders), self.close[0], self.data.high[0], self.data.low[0]))
         bar_current = len(self)
         current_price = self.close[0]
-
-        if current_price > self.max_price:
-            self.max_price = current_price
 
         if self.broker.cash > 0 and len(self.open_sell_orders) < self.p.max_open_trades and self.has_buy_signal():
             buy_price_limit = self.max_price * (1 - self.p.target_profit)
