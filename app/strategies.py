@@ -3,8 +3,11 @@ import analysis as a
 from analysis import MarketTrend
 from datetime import datetime, timedelta
 import numpy as np
+import logging
 
 class DefaultStrategy(Strategy):
+    logger = logging.getLogger('trader')
+
     params = (
         ('stake', 10000),
         ('target_profit', 0.01),
@@ -15,9 +18,11 @@ class DefaultStrategy(Strategy):
         '''Logging function for the strategy'''
         dt = dt or self.datas[0].datetime.datetime()
         if not carriage_return:
-            print('%s, %s' % (dt, txt))
+            # print('%s, %s' % (dt, txt))
+            self.logger.info('%s, %s' % (dt, txt))
         else:
-            print('\r%s, %s' % (dt, txt))
+            # print('\r%s, %s' % (dt, txt))
+            self.logger.info('\r%s, %s' % (dt, txt))
 
     def __init__(self):
         self.data = self.datas[0]
