@@ -27,6 +27,7 @@ class DefaultStrategy(Strategy):
     def __init__(self):
         self.data = self.datas[0]
         self.close = self.datas[0].close
+        self.starting_price = self.datas[0].close[0]
         self.stake_per_order = self.p.stake / self.p.max_open_trades
         self.executed_buy_orders = []
         self.open_sell_orders = []
