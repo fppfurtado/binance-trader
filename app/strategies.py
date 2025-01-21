@@ -12,6 +12,10 @@ class DefaultStrategy(Strategy):
         ('stake', 10000),
         ('target_profit', 0.01),
         ('max_open_trades', 1),     # Limite máximo de operações abertas
+        ('buy_price_limit_enable', True),
+        ('buy_price_limit_target_profit_percent', 1),
+        ('buy_price_discount_enable', True),
+        ('buy_price_discount_target_profit_percent', 0.5)
     )
 
     def log(self, txt, dt=None, carriage_return=False):
@@ -51,8 +55,13 @@ class DefaultStrategy(Strategy):
         current_price = self.close[0]
 
         if self.broker.cash > 0 and len(self.open_sell_orders) < self.p.max_open_trades and self.has_buy_signal():
-            buy_price_limit = self.max_price * (1 - self.p.target_profit)
-            buy_price = min(current_price * (1 - self.p.target_profit/2), self.max_price * (1 - self.p.target_profit))
+            if not self.p.buy_price_limit_enable:
+                self.p.buy_price_limit_target_profit_percent = 0
+            if not self.p.buy_price_discount_enable:
+                self.p.buy_price_discount_target_profit_percent = 0
+                
+            buy_price_limit = self.max_price * (1 - self.p.target_profit * self.p.buy_price_limit_target_profit_percent)
+            buy_price = min(current_price * (1 - self.p.target_profit * self.p.buy_price_discount_target_profit_percent), buy_price_limit)
             order_expiration = timedelta(hours=6)
             main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self.stake_per_order/buy_price,transmit=False, valid=order_expiration)
 
