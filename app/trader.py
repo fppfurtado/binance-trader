@@ -34,9 +34,9 @@ def __main():
         buy_price_discount_target_profit_percent = [0.5, 1]
     )
 
-    start_datetime = datetime(2024, 11, 1)
+    start_datetime = datetime(2024, 11, 22)
     # end_datetime = start_datetime + timedelta(hours=6)
-    end_datetime = start_datetime + timedelta(days=2)
+    end_datetime = start_datetime + timedelta(days=30)
     candles = broker.get_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime, interval='1m')
     df_candles = broker.candles_to_dataframe(candles)
     
