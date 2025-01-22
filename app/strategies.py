@@ -10,7 +10,6 @@ class DefaultStrategy(Strategy):
     params = (
         ('stake', 10000),
         ('target_profit', 0.01),
-        ('max_open_trades', 1),     # Limite máximo de operações abertas
         ('buy_price_limit_target_profit_percent', 1),
         ('buy_price_discount_target_profit_percent', 0.5),
         ('hours_to_expirate', 6)
@@ -30,7 +29,6 @@ class DefaultStrategy(Strategy):
         self.data = self.datas[0]
         self.close = self.datas[0].close
         self.starting_price = self.datas[0].close[0]
-        self.stake_per_order = self.p.stake / self.p.max_open_trades
         self.executed_buy_orders = []
         self.open_sell_orders = []
         self.executed_sell_orders = []
