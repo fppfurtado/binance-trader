@@ -1,6 +1,7 @@
 from typing import Protocol, List, Tuple
 from enum import Enum
 import pandas as pd
+import backtrader as bt
 
 def get_exponential_moving_average(historical_data: [], length: int = None) -> float:
     if length is None:
@@ -21,3 +22,31 @@ def is_bullish(candle: []):
 def is_bearish(candle: []):
     ''' candle: [timestamp, open, high, low, close, ...] '''
     return candle[4] < candle[1]
+
+class ProfitReturns(bt.Analyzer):
+    def __init__(self):
+        super(ProfitReturns, self).__init__()
+        # self.initial_profit = None
+        # self.final_profit = None
+        # self.profit_returns = []
+        # self.total_profit = 0
+
+    def start(self):
+        # Armazenando o valor inicial do caixa no início do backtest
+        # self.initial_profit = self.strategy.broker.startingcash
+        pass
+
+    def next(self):
+        # Armazenando o valor do caixa a cada passo do backtest
+        # self.profit_returns.append(self.strategy.broker.get_cash())
+        pass
+
+    def stop(self):
+        # O valor final do caixa no final do backtest
+        self.total_profit = self.strategy.total_profit
+
+    def get_analysis(self):
+        # Calculando o retorno com base na evolução do caixa
+        return {
+            'total_profit': self.total_profit,
+        }
