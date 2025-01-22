@@ -54,17 +54,15 @@ class DefaultStrategy(Strategy):
             buy_price_limit = self.max_price * (1 - self.p.target_profit * self.p.buy_price_limit_target_profit_percent)
             buy_price = min(current_price * (1 - self.p.target_profit * self.p.buy_price_discount_target_profit_percent), buy_price_limit)
             order_expiration = timedelta(hours=self.p.hours_to_expirate)
-            main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self.stake_per_order/buy_price,transmit=False, valid=order_expiration)
+            main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self.p.stake/buy_price,transmit=False, valid=order_expiration)
 
             if main_order:
                 position = main_order.price * main_order.size
-                sell_price = (position + (self.stake_per_order * self.p.target_profit))/main_order.size
+                sell_price = (position + (self.p.stake * self.p.target_profit))/main_order.size
                 take_profit_order = self.sell(parent=main_order, exectype=Order.Limit, price=sell_price, size=main_order.size, transmit=True, parent_price=main_order.price, range_index=None)
                         
                 self.open_sell_orders.append(take_profit_order)                    
                 
-            self.bar_executed = len(self)
-
     def notify_order(self, order):
         #print(f'Ordem ref {order.ref}, Status {order.status}')
         if order.status == Order.Submitted:
