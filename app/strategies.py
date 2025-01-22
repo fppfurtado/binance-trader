@@ -11,10 +11,7 @@ class DefaultStrategy(Strategy):
     params = (
         ('stake', 10000),
         ('target_profit', 0.01),
-        ('max_open_trades', 1),     # Limite máximo de operações abertas
-        ('buy_price_limit_enable', True),
         ('buy_price_limit_target_profit_percent', 1),
-        ('buy_price_discount_enable', True),
         ('buy_price_discount_target_profit_percent', 0.5),
         ('hours_to_expirate', 6)
     )
@@ -32,8 +29,7 @@ class DefaultStrategy(Strategy):
     def __init__(self):
         self.data = self.datas[0]
         self.close = self.datas[0].close
-        self.starting_price = self.datas[0].close[0]
-        self.stake_per_order = self.p.stake / self.p.max_open_trades
+        self.starting_price = None
         self.executed_buy_orders = []
         self.open_sell_orders = []
         self.executed_sell_orders = []
@@ -43,6 +39,10 @@ class DefaultStrategy(Strategy):
         self.min_price = -1
         
     def next(self):
+        # preço inicial do dataset
+        if len(self) == 1:
+            self.starting_price = self.close[0]
+
         # rastreia preço máximo
         if self.data.high[0] > self.max_price:
             self.max_price = self.data.high[0]
@@ -52,23 +52,18 @@ class DefaultStrategy(Strategy):
             self.min_price = self.data.low[0]
 
         # self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.open_sell_orders), self.close[0], self.data.high[0], self.data.low[0]))
-        bar_current = len(self)
-        current_price = self.close[0]
+        
+        if self.broker.cash > 0 and len(self.open_sell_orders) < 1 and self.has_buy_signal():
+            current_price = self.close[0]
 
-        if self.broker.cash > 0 and len(self.open_sell_orders) < self.p.max_open_trades and self.has_buy_signal():
-            if not self.p.buy_price_limit_enable:
-                self.p.buy_price_limit_target_profit_percent = 0
-            if not self.p.buy_price_discount_enable:
-                self.p.buy_price_discount_target_profit_percent = 0
-                
             buy_price_limit = self.max_price * (1 - self.p.target_profit * self.p.buy_price_limit_target_profit_percent)
             buy_price = min(current_price * (1 - self.p.target_profit * self.p.buy_price_discount_target_profit_percent), buy_price_limit)
             order_expiration = timedelta(hours=self.p.hours_to_expirate)
-            main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self.stake_per_order/buy_price,transmit=False, valid=order_expiration)
+            main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self.p.stake/buy_price,transmit=False, valid=order_expiration)
 
             if main_order:
                 position = main_order.price * main_order.size
-                sell_price = (position + (self.stake_per_order * self.p.target_profit))/main_order.size
+                sell_price = (position + (self.p.stake * self.p.target_profit))/main_order.size
                 take_profit_order = self.sell(parent=main_order, exectype=Order.Limit, price=sell_price, size=main_order.size, transmit=True, parent_price=main_order.price, range_index=None)
                         
                 self.open_sell_orders.append(take_profit_order)                    
