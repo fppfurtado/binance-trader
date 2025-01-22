@@ -52,7 +52,7 @@ def __main():
     cerebro.addanalyzer(a.ProfitReturns, _name = "profit")
 
     # Run over everything
-    results = cerebro.run()
+    results = cerebro.run(exactbars=True)
     
     # Resumo do desempenho    
     print_opt_results(results)
