@@ -28,13 +28,13 @@ class DefaultStrategy(Strategy):
     def __init__(self):
         self.data = self.datas[0]
         self.close = self.datas[0].close
-        self.starting_price = self.datas[0].close[0]
         self.executed_buy_orders = []
         self.open_sell_orders = []
         self.executed_sell_orders = []
         self.total_profit = 0
         self.max_price = -1
         self.min_price = -1
+        self.open_buy_order = None
         
     def next(self):
         # rastreia preço máximo
@@ -45,22 +45,26 @@ class DefaultStrategy(Strategy):
         if self.min_price < 0 or self.data.low[0] < self.min_price:
             self.min_price = self.data.low[0]
 
-        # self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.open_sell_orders), self.close[0], self.data.high[0], self.data.low[0]))
-        bar_current = len(self)
-        current_price = self.close[0]
+        if self.open_buy_order:
+            return
 
-        if self.broker.cash > 0 and len(self.open_sell_orders) < self.p.max_open_trades and self.has_buy_signal():
+        # self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.open_sell_orders), self.close[0], self.data.high[0], self.data.low[0]))
+        
+        if self.broker.cash > 0 and not self.position and self.has_buy_signal():
+            current_price = self.close[0]
+
             buy_price_limit = self.max_price * (1 - self.p.target_profit * self.p.buy_price_limit_target_profit_percent)
             buy_price = min(current_price * (1 - self.p.target_profit * self.p.buy_price_discount_target_profit_percent), buy_price_limit)
             order_expiration = timedelta(hours=self.p.hours_to_expirate)
             main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self.p.stake/buy_price,transmit=False, valid=order_expiration)
+            self.open_buy_order = main_order
 
             if main_order:
                 position = main_order.price * main_order.size
                 sell_price = (position + (self.p.stake * self.p.target_profit))/main_order.size
                 take_profit_order = self.sell(parent=main_order, exectype=Order.Limit, price=sell_price, size=main_order.size, transmit=True, parent_price=main_order.price, range_index=None)
                         
-                self.open_sell_orders.append(take_profit_order)                    
+                self.open_sell_orders.append(take_profit_order)             
                 
     def notify_order(self, order):
         #print(f'Ordem ref {order.ref}, Status {order.status}')
@@ -68,6 +72,7 @@ class DefaultStrategy(Strategy):
             # pass
             self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.open_sell_orders), self.close[0], self.data.high[0], self.data.low[0]))            
             self.log('ORDER SUBMITTED(%s, %s, %s, %s) = %.2f' % (order.ref, order.ordtype, order.price, order.size, order.size * order.price)) 
+            return
         # if order.status == Order.Accepted:
         #     if order.isbuy():
         #         self.not_positioned_operations.append(order)
@@ -76,6 +81,7 @@ class DefaultStrategy(Strategy):
             if order.isbuy():        
                 self.log('BUY EXECUTED(%s, %s, %s) = %.2f' % (order.ref, order.executed.price, order.executed.size, order.executed.price*(order.executed.size)))
                 self.executed_buy_orders.append(order)
+                self.open_buy_order = order
             #elif order.issell():
             if order.issell():
                 self.log('SELL EXECUTED(%s, %s, %s) = %.2f' % (str(order.parent.ref)+"."+str(order.ref), order.executed.price, order.executed.size, order.executed.price*(-order.executed.size)))
@@ -94,7 +100,8 @@ class DefaultStrategy(Strategy):
 
         if order.status == Order.Expired:
             self.log('ORDER EXPIRED(%s)' % (order.ref))
-                
+            self.open_buy_order = None
+        
     def has_buy_signal(self) -> bool:
         if a.is_bullish(self._get_candle(0)):
             if a.is_bullish(self._get_candle(-1)):

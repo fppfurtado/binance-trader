@@ -34,8 +34,8 @@ def __main():
     )
 
     start_datetime = datetime(2024, 10, 21)
-    # end_datetime = start_datetime + timedelta(hours=6)
-    end_datetime = start_datetime + timedelta(days=90)
+    end_datetime = start_datetime + timedelta(hours=2)
+    # end_datetime = start_datetime + timedelta(days=90)
     candles = broker.get_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime, interval='1m')
     df_candles = broker.candles_to_dataframe(candles)
     
@@ -46,13 +46,13 @@ def __main():
     cerebro.broker.set_cash(stake)
 
     # adicionando analyzers
-    cerebro.addanalyzer(btanalyzers.SharpeRatio, _name = "sharpe", timeframe=TimeFrame.Days, riskfreerate=0.06)
-    cerebro.addanalyzer(btanalyzers.DrawDown, _name = "drawdown")
-    cerebro.addanalyzer(btanalyzers.Returns, _name = "returns", timeframe=TimeFrame.NoTimeFrame)
+    # cerebro.addanalyzer(btanalyzers.SharpeRatio, _name = "sharpe", timeframe=TimeFrame.Days, riskfreerate=0.06)
+    # cerebro.addanalyzer(btanalyzers.DrawDown, _name = "drawdown")
+    # cerebro.addanalyzer(btanalyzers.Returns, _name = "returns", timeframe=TimeFrame.NoTimeFrame)
     cerebro.addanalyzer(a.ProfitReturns, _name = "profit")
 
     # Run over everything
-    results = cerebro.run(exactbars=True)
+    results = cerebro.run(maxcpus=1, preload=False)
     
     # Resumo do desempenho    
     print_opt_results(results)
@@ -75,19 +75,17 @@ def __init():
 
 def print_opt_results(results):    
     par_list = [[x[0].params.target_profit, 
-             x[0].params.buy_price_limit_enable,
              x[0].params.buy_price_limit_target_profit_percent,
-             x[0].params.buy_price_discount_enable,
              x[0].params.buy_price_discount_target_profit_percent,
              x[0].params.hours_to_expirate,
              x[0].analyzers.profit.get_analysis()['total_profit'],
-             x[0].analyzers.sharpe.get_analysis()['sharperatio'],
+            #  x[0].analyzers.sharpe.get_analysis()['sharperatio'],
             #  x[0].analyzers.returns.get_analysis()['rtot'], 
-             x[0].analyzers.drawdown.get_analysis()['max']['drawdown']             
+            #  x[0].analyzers.drawdown.get_analysis()['max']['drawdown']             
             ] for x in results]
         	
-    par_df = pd.DataFrame(par_list, columns = ['target_profit','bpl', 'bpl_perc', 'bpd', 'bpd_perc', 'hours_to_expirate','profit', 'sharpe','dd'])
-    print(par_df.sort_values(by=['profit', 'sharpe'], ascending=False).head(10))
+    par_df = pd.DataFrame(par_list, columns = ['target_profit','bpl_perc', 'bpd_perc', 'hours_to_expirate','profit'])
+    print(par_df.sort_values(by=['profit'], ascending=False).head(10))
 
 def setup_logging():
     config_file = pathlib.Path('logging.config.json')
