@@ -35,7 +35,7 @@ def __main():
 
     start_datetime = datetime(2024, 10, 21)
     # end_datetime = start_datetime + timedelta(hours=6)
-    end_datetime = start_datetime + timedelta(days=30)
+    end_datetime = start_datetime + timedelta(days=90)
     candles = broker.get_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime, interval='1m')
     df_candles = broker.candles_to_dataframe(candles)
     
@@ -87,7 +87,7 @@ def print_opt_results(results):
             ] for x in results]
         	
     par_df = pd.DataFrame(par_list, columns = ['target_profit','bpl', 'bpl_perc', 'bpd', 'bpd_perc', 'hours_to_expirate','profit', 'sharpe','dd'])
-    print(par_df.sort_values(by=['profit', 'sharpe'], ascending=False))
+    print(par_df.sort_values(by=['profit', 'sharpe'], ascending=False).head(10))
 
 def setup_logging():
     config_file = pathlib.Path('logging.config.json')
