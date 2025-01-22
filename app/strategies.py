@@ -33,7 +33,6 @@ class DefaultStrategy(Strategy):
         self.open_sell_orders = []
         self.executed_sell_orders = []
         self.total_profit = 0
-        self.bar_executed = None
         self.max_price = -1
         self.min_price = -1
         
