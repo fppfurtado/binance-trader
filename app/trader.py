@@ -29,7 +29,7 @@ def __main():
         DefaultStrategy,
         target_profit = [0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.03],
         buy_price_limit_target_profit_percent = [0, 0.5, 1, 1.5],
-        buy_price_discount_target_profit_percent = [0, 0.5, 1],
+        buy_price_discount_target_profit_percent = [0, 0.5, 1, 1.5],
         hours_to_expirate = [1, 2, 4, 6, 12]
     )
 
