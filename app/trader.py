@@ -27,7 +27,7 @@ def __main():
     # cerebro.addstrategy(DefaultStrategy, target_profit=(0.5 / 100))
     cerebro.optstrategy(
         DefaultStrategy,
-        target_profit = [0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.03],
+        target_profit = [0.0075, 0.01, 0.015, 0.02, 0.025, 0.03],
         buy_price_limit_target_profit_percent = [0, 0.5, 1, 1.5],
         buy_price_discount_target_profit_percent = [0, 0.5, 1, 1.5],
         hours_to_expirate = [1, 2, 4, 6, 12]
@@ -45,8 +45,8 @@ def __main():
     # )
 
     start_datetime = datetime(2024, 10, 21)
-    end_datetime = start_datetime + timedelta(hours=2)
-    # end_datetime = start_datetime + timedelta(days=90)
+    # end_datetime = start_datetime + timedelta(hours=2)
+    end_datetime = start_datetime + timedelta(days=90)
     candles = broker.get_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime, interval='1m')
     df_candles = broker.candles_to_dataframe(candles)
     
@@ -63,7 +63,7 @@ def __main():
     cerebro.addanalyzer(a.ProfitReturns, _name = "profit")
 
     # Run over everything
-    results = cerebro.run(maxcpus=1, preload=False)
+    results = cerebro.run(exactbars=True)
     
     # Resumo do desempenho    
     print_opt_results(results)
@@ -96,7 +96,7 @@ def print_opt_results(results):
             ] for x in results]
         	
     par_df = pd.DataFrame(par_list, columns = ['target_profit','bpl_perc', 'bpd_perc', 'hours_to_expirate','profit'])
-    print(par_df.sort_values(by=['profit'], ascending=False).head(10))
+    print(par_df.sort_values(by=['profit'], ascending=False).head(20))
 
 def print_results(cerebro, results):
     strategy = results[0]
