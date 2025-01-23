@@ -26,33 +26,34 @@ def __main():
     global broker
     # global asset_symbol
     # cerebro.addstrategy(DefaultStrategy, target_profit=(0.5 / 100))
-    # cerebro.optstrategy(
-    #     DefaultStrategy,
-    #     target_profit = [0.0075, 0.01, 0.015, 0.025, 0.03],
-    #     # buy_price_limit_target_profit_percent = [0],
-    #     # buy_price_discount_target_profit_percent = [0],
-    #     hours_to_expirate = [0.5, 1, 2, 4, 6, 12]
-    # )
+    cerebro.optstrategy(
+        DefaultStrategy,
+        target_profit = [0.0075, 0.01, 0.015, 0.025, 0.03],
+        buy_price_limit_target_profit_percent = [0, 0.5, 1],
+        buy_price_discount_target_profit_percent = [0, 0.5, 1],
+        hours_to_expirate = [0.5, 1, 2, 4, 6, 12]
+    )
 
     # start_datetime = datetime(2024, 10, 21)
     # end_datetime = start_datetime + timedelta(hours=2)
     # end_datetime = start_datetime + timedelta(days=90)
-    cerebro.addstrategy(
-        DefaultStrategy, 
-        target_profit=0.01, 
-        # buy_price_limit_target_profit_percent=0.5, 
-        # buy_price_discount_target_profit_percent=0.5, 
-        hours_to_expirate=0.5
-    )
-
-    candles = get_candles(
-        asset_symbol=asset_symbol,
-        start_str='2024-10-21',
-        time_offset_days=1,
-        timeframe='1m',
-        save_csv=True
-    )
-    df_candles = candles_to_dataframe(candles)
+    # cerebro.addstrategy(
+    #     DefaultStrategy, 
+    #     target_profit=0.025, 
+    #     # buy_price_limit_target_profit_percent=0.5, 
+    #     # buy_price_discount_target_profit_percent=0.5, 
+    #     hours_to_expirate=0.5
+    # )
+    
+    # candles = get_candles(
+    #     asset_symbol=asset_symbol,
+    #     start_str='2024-10-21',
+    #     time_offset_days=1,
+    #     timeframe='1m',
+    #     save_csv=True
+    # )
+    # df_candles = candles_to_dataframe(candles)
+    df_candles = load_candles('data', asset_symbol)    
     
     data_feed = bt.feeds.PandasData(dataname=df_candles)
     cerebro.adddata(data_feed)
@@ -70,8 +71,8 @@ def __main():
     results = cerebro.run()
     
     # Resumo do desempenho    
-    print_results(cerebro, results)
-    # print_opt_results(results)
+    # print_results(cerebro, results)
+    print_opt_results(results)
     
 def __init():
 
@@ -101,6 +102,38 @@ def get_candles(asset_symbol: str, start_str: str, end_str: str = None, time_off
             candles_to_dataframe(candles).to_csv(f'data/{asset_symbol}_{timeframe}_{single_date.strftime('%Y-%m-%d')}.csv', header=True, index=True)
 
     return candles
+
+def load_candles(dir_name, asset_symbol):
+    candles = []
+    col_types = {
+        'timestamp': 'str',
+        'open': 'float64',
+        'high': 'float64',
+        'low': 'float64',
+        'close': 'float64',
+        'volume': 'float64',
+        'close_time': 'str'
+    }
+
+    # Iterar sobre todos os arquivos na pasta 'data'
+    for file_name in os.listdir(dir_name):
+        # Verificar se o arquivo é um CSV
+        if file_name.endswith('.csv'):
+            
+            # Carregar o arquivo CSV usando pandas
+            file_path = os.path.join(dir_name, file_name)
+            df = pd.read_csv(file_path, dtype=col_types)
+
+            # Adicionar o DataFrame à lista de dados
+            candles.append(df)
+
+    # Concatenar todos os DataFrames na lista em um único DataFrame
+    candles = pd.concat(candles)
+    candles['timestamp'] = pd.to_datetime(candles['timestamp'])
+    candles['close_time'] = pd.to_datetime(candles['close_time'])
+    candles.set_index('timestamp', inplace=True)
+
+    return candles
         
 def daterange(start_str: str, end_str: str = None, time_offset_days: int = 0):
 
@@ -120,8 +153,7 @@ def candles_to_dataframe(candles) -> pd.DataFrame:
             candles, 
             columns=[
                 'timestamp', 'open', 'high', 'low', 'close',
-                'volume', 'close_time', 'quote_volume', 'trades',
-                'taker_buy_base', 'taker_buy_quote', 'ignore'
+                'volume', 'close_time'
             ]
         )
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
@@ -134,8 +166,8 @@ def candles_to_dataframe(candles) -> pd.DataFrame:
 
 def print_opt_results(results):    
     par_list = [[x[0].params.target_profit, 
-            #  x[0].params.buy_price_limit_target_profit_percent,
-            #  x[0].params.buy_price_discount_target_profit_percent,
+             x[0].params.buy_price_limit_target_profit_percent,
+             x[0].params.buy_price_discount_target_profit_percent,
              x[0].params.hours_to_expirate,
              x[0].analyzers.profit.get_analysis()['total_profit'],
              x[0].analyzers.sharpe.get_analysis()['sharperatio'],
@@ -143,7 +175,7 @@ def print_opt_results(results):
              x[0].analyzers.drawdown.get_analysis()['max']['drawdown']             
             ] for x in results]
         	
-    par_df = pd.DataFrame(par_list, columns = ['target_profit', 'hours_to_expirate','profit', 'sharp', 'return', 'dd'])
+    par_df = pd.DataFrame(par_list, columns = ['target_profit', 'bpl', 'bpd', 'hours_to_expirate','profit', 'sharp', 'return', 'dd'])
     print(par_df.sort_values(by=['profit', 'sharp', 'return'], ascending=False).head(20))
 
 def print_results(cerebro, results):
