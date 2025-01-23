@@ -149,23 +149,6 @@ class BinanceClient(BaseClient):
         else:
             return self.client.get_klines(symbol=self.symbol, interval=interval, limit=limit)
 
-    def candles_to_dataframe(self, candles):
-        df = pd.DataFrame(
-                candles, 
-                columns=[
-                    'timestamp', 'open', 'high', 'low', 'close',
-                    'volume', 'close_time', 'quote_volume', 'trades',
-                    'taker_buy_base', 'taker_buy_quote', 'ignore'
-                ]
-            )
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
-        df.set_index('timestamp', inplace=True)
-
-        for col in ['open', 'high', 'low', 'close', 'volume']:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-
-        return df
-
     def get_10s_klines(self, symbol, start_time, end_time=None):
         """
         Fetch 1s klines and aggregate them to 10s klines

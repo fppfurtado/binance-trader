@@ -24,6 +24,7 @@ def __main():
     cerebro = bt.Cerebro()
 
     global broker
+    # global asset_symbol
     # cerebro.addstrategy(DefaultStrategy, target_profit=(0.5 / 100))
     # cerebro.optstrategy(
     #     DefaultStrategy,
@@ -44,11 +45,14 @@ def __main():
         hours_to_expirate=0.5
     )
 
-    start_datetime = datetime(2024, 10, 21)
-    # end_datetime = start_datetime + timedelta(hours=8)
-    end_datetime = start_datetime + timedelta(days=90)
-    candles = broker.get_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime, interval='1m')
-    df_candles = broker.candles_to_dataframe(candles)
+    candles = get_candles(
+        asset_symbol=asset_symbol,
+        start_str='2024-10-21',
+        time_offset_days=1,
+        timeframe='1m',
+        save_csv=True
+    )
+    df_candles = candles_to_dataframe(candles)
     
     data_feed = bt.feeds.PandasData(dataname=df_candles)
     cerebro.adddata(data_feed)
@@ -84,6 +88,49 @@ def __init():
 
     global broker
     broker = BinanceClient(API_KEY, API_SECRET, asset_symbol)
+
+def get_candles(asset_symbol: str, start_str: str, end_str: str = None, time_offset_days:int = 0, timeframe: str = '1m', save_csv: bool = False):
+    if end_str:
+        period = daterange(start_str, end_str)
+    else:
+        period = daterange(start_str, time_offset_days=time_offset_days)
+
+    for single_date in period:
+        candles = broker.get_klines(asset_symbol, start_time=single_date, end_time=single_date + timedelta(hours=23, minutes=59), interval='1m')
+        if save_csv:
+            candles_to_dataframe(candles).to_csv(f'data/{asset_symbol}_{timeframe}_{single_date.strftime('%Y-%m-%d')}.csv', header=True, index=True)
+
+    return candles
+        
+def daterange(start_str: str, end_str: str = None, time_offset_days: int = 0):
+
+    start_date = datetime.strptime(start_str, '%Y-%m-%d')        
+
+    if end_str:
+        end_date = datetime.strptime(end_str, '%Y-%m-%d')
+    else:
+        end_date = start_date + timedelta(days=time_offset_days)
+
+    for n in range(int((end_date - start_date).days) + 1):
+        yield start_date + timedelta(days=n)
+    # return (start_date, end_date)
+
+def candles_to_dataframe(candles) -> pd.DataFrame:
+    df = pd.DataFrame(
+            candles, 
+            columns=[
+                'timestamp', 'open', 'high', 'low', 'close',
+                'volume', 'close_time', 'quote_volume', 'trades',
+                'taker_buy_base', 'taker_buy_quote', 'ignore'
+            ]
+        )
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+    df.set_index('timestamp', inplace=True)
+
+    for col in ['open', 'high', 'low', 'close', 'volume']:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    return df
 
 def print_opt_results(results):    
     par_list = [[x[0].params.target_profit, 
