@@ -53,20 +53,23 @@ class DefaultStrategy(Strategy):
             return
 
         # self.log('Cash %.2f, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, self.close[0], self.data.high[0], self.data.low[0]))
-        
-        if self.broker.cash > 0 and not self.position and self.has_buy_signal():
+        if not self.position and self.has_buy_signal():
             current_price = self.close[0]
-
+            
             buy_price_limit = self.max_price * (1 - self.p.target_profit * self.p.buy_price_limit_target_profit_percent)
             buy_price = min(current_price * (1 - self.p.target_profit * self.p.buy_price_discount_target_profit_percent), buy_price_limit)
-            order_expiration = timedelta(hours=self.p.hours_to_expirate)
-            main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self.broker.cash/buy_price,transmit=False, valid=order_expiration)
-            self.open_buy_order = main_order
+            buy_size = self.broker.cash/buy_price
+            order_value = buy_price * buy_size
 
-            if main_order:
-                position = main_order.price * main_order.size
-                sell_price = (position + (self.broker.cash * self.p.target_profit))/main_order.size
-                self.sell(parent=main_order, exectype=Order.Limit, price=sell_price, size=main_order.size, transmit=True, parent_price=main_order.price)
+            if order_value <= self.broker.cash:
+                order_expiration = timedelta(hours=self.p.hours_to_expirate)
+                main_order = self.buy(exectype=Order.Limit, price=buy_price, size=buy_size,transmit=False, valid=order_expiration)
+                self.open_buy_order = main_order
+
+                if main_order:
+                    position = main_order.price * main_order.size
+                    sell_price = (position + (self.broker.cash * self.p.target_profit))/main_order.size
+                    self.sell(parent=main_order, exectype=Order.Limit, price=sell_price, size=main_order.size, transmit=True, parent_price=main_order.price)
                         
     def notify_order(self, order):
         #print(f'Ordem ref {order.ref}, Status {order.status}')
@@ -99,7 +102,13 @@ class DefaultStrategy(Strategy):
                     
             case Order.Expired:
                 self.log('ORDER EXPIRED(%s)' % (order.ref))
-                self.open_buy_order = None                
+                self.open_buy_order = None
+
+            case Order.Margin:
+                self.log('ORDER MARGIN(%s)' % (order.ref))
+
+            case Order.Rejected:
+                self.log('ORDER REJECTED(%s)' % (order.ref))
                 
     def has_buy_signal(self) -> bool:
         if a.is_bullish(self._get_candle(0)):
