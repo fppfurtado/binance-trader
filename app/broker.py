@@ -26,7 +26,7 @@ class BaseClient(Protocol):
     def get_current_price(self, symbol: str) -> decimal:
         pass
 
-    def get_klines(self, symbol: str, interval: str, limit:int, start_time, end_time):
+    def get_klines(self, symbol: str, interval: str, limit:int, start_time: datetime, end_time: datetime):
         pass
 
     def get_10s_klines(self, symbol: str, start_time, end_time=None):
@@ -75,7 +75,7 @@ class BinanceClient(BaseClient):
     def get_current_price(self, symbol: str) -> decimal:
         return self.client.get_symbol_ticker(symbol=symbol)
 
-    def get_klines(self, symbol: str, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit:int = 1000, start_time = None, end_time = None):
+    def get_klines(self, symbol: str, interval: str = Client.KLINE_INTERVAL_1MINUTE, limit:int = 1000, start_time: datetime = None, end_time: datetime = None):
         if start_time and end_time:
             """
             Fetch 1s klines and aggregate them to 10s klines
