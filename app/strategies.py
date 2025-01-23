@@ -30,11 +30,10 @@ class DefaultStrategy(Strategy):
         self.data = self.datas[0]
         self.close = self.datas[0].close
         self.starting_price = None
-        self.executed_buy_orders = []
-        self.open_sell_orders = []
-        self.executed_sell_orders = []
+        self.open_buy_order = None
+        self.executed_buy_orders_counter = 0
+        self.executed_sell_orders_counter = 0
         self.total_profit = 0
-        self.bar_executed = None
         self.max_price = -1
         self.min_price = -1
         
@@ -51,57 +50,57 @@ class DefaultStrategy(Strategy):
         if self.min_price < 0 or self.data.low[0] < self.min_price:
             self.min_price = self.data.low[0]
 
+        if self.open_buy_order:
+            return
+
         # self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.open_sell_orders), self.close[0], self.data.high[0], self.data.low[0]))
         
-        if self.broker.cash > 0 and len(self.open_sell_orders) < 1 and self.has_buy_signal():
+        if self.broker.cash > 0 and not self.position and self.has_buy_signal():
             current_price = self.close[0]
 
             buy_price_limit = self.max_price * (1 - self.p.target_profit * self.p.buy_price_limit_target_profit_percent)
             buy_price = min(current_price * (1 - self.p.target_profit * self.p.buy_price_discount_target_profit_percent), buy_price_limit)
             order_expiration = timedelta(hours=self.p.hours_to_expirate)
             main_order = self.buy(exectype=Order.Limit, price=buy_price, size=self.p.stake/buy_price,transmit=False, valid=order_expiration)
+            self.open_buy_order = main_order
 
             if main_order:
                 position = main_order.price * main_order.size
                 sell_price = (position + (self.p.stake * self.p.target_profit))/main_order.size
                 take_profit_order = self.sell(parent=main_order, exectype=Order.Limit, price=sell_price, size=main_order.size, transmit=True, parent_price=main_order.price, range_index=None)
                         
-                self.open_sell_orders.append(take_profit_order)                    
-                
-            self.bar_executed = len(self)
-
     def notify_order(self, order):
         #print(f'Ordem ref {order.ref}, Status {order.status}')
-        if order.status == Order.Submitted:
-            # pass
-            self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.open_sell_orders), self.close[0], self.data.high[0], self.data.low[0]))            
-            self.log('ORDER SUBMITTED(%s, %s, %s, %s) = %.2f' % (order.ref, order.ordtype, order.price, order.size, order.size * order.price)) 
+        match order.status:
+            case Order.Submitted:
+                # pass
+                self.log('Cash %.2f, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, self.close[0], self.data.high[0], self.data.low[0]))            
+                self.log('ORDER SUBMITTED(%s, %s, %s, %s) = %.2f' % (order.ref, order.ordtype, order.price, order.size, order.size * order.price)) 
         # if order.status == Order.Accepted:
         #     if order.isbuy():
         #         self.not_positioned_operations.append(order)
-        if order.status in [Order.Completed]:
-            self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.open_sell_orders), self.close[0], self.data.high[0], self.data.low[0]))            
-            if order.isbuy():        
-                self.log('BUY EXECUTED(%s, %s, %s) = %.2f' % (order.ref, order.executed.price, order.executed.size, order.executed.price*(order.executed.size)))
-                self.executed_buy_orders.append(order)
-            #elif order.issell():
-            if order.issell():
-                self.log('SELL EXECUTED(%s, %s, %s) = %.2f' % (str(order.parent.ref)+"."+str(order.ref), order.executed.price, order.executed.size, order.executed.price*(-order.executed.size)))
-                self.open_sell_orders.remove(order)
-                self.executed_sell_orders.append(order)
-                self.total_profit = self.total_profit + (order.price - float(order.info['parent_price']))*(-order.size)
-                
-            # self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.open_sell_orders), self.close[0], self.data.high[0], self.data.low[0]))
-
-            self.log(f'POSISION SIZE: {self.position.size}')
-                
-        if order.status == Order.Canceled:
-                self.log('ORDER CANCELED(%s)' % (order.ref))
+            case Order.Completed:
+                self.log('Cash %.2f, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, self.close[0], self.data.high[0], self.data.low[0]))            
+                if order.isbuy():        
+                    self.log('BUY EXECUTED(%s, %s, %s) = %.2f' % (order.ref, order.executed.price, order.executed.size, order.executed.price*(order.executed.size)))
+                    self.executed_buy_orders_counter += 1
+                    self.open_buy_order = None
+                #elif order.issell():
                 if order.issell():
-                    self.open_sell_orders.remove(order)
+                    self.log('SELL EXECUTED(%s, %s, %s) = %.2f' % (str(order.parent.ref)+"."+str(order.ref), order.executed.price, order.executed.size, order.executed.price*(-order.executed.size)))
+                    self.executed_sell_orders_counter += 1
+                    self.total_profit = self.total_profit + (order.price - float(order.info['parent_price']))*(-order.size)
+                    
+                # self.log('Cash %.2f, Open Sell Orders %s, Close %.2f, High %.2f, Low %.2f' % (self.broker.cash, len(self.open_sell_orders), self.close[0], self.data.high[0], self.data.low[0]))
 
-        if order.status == Order.Expired:
-            self.log('ORDER EXPIRED(%s)' % (order.ref))
+                self.log(f'POSISION SIZE: {self.position.size}')
+                
+            case Order.Canceled:
+                    self.log('ORDER CANCELED(%s)' % (order.ref))
+                    self.open_buy_order = None
+                    
+            case Order.Expired:
+                self.log('ORDER EXPIRED(%s)' % (order.ref))
                 
     def has_buy_signal(self) -> bool:
         if a.is_bullish(self._get_candle(0)):
