@@ -25,27 +25,27 @@ def __main():
 
     global broker
     # cerebro.addstrategy(DefaultStrategy, target_profit=(0.5 / 100))
-    cerebro.optstrategy(
-        DefaultStrategy,
-        target_profit = [0.0075, 0.01, 0.015, 0.02, 0.025, 0.03],
-        buy_price_limit_target_profit_percent = [0, 0.5, 1, 1.5],
-        buy_price_discount_target_profit_percent = [0, 0.5, 1, 1.5],
-        hours_to_expirate = [1, 2, 4, 6, 12]
-    )
+    # cerebro.optstrategy(
+    #     DefaultStrategy,
+    #     target_profit = [0.0075, 0.01, 0.015, 0.025, 0.03],
+    #     # buy_price_limit_target_profit_percent = [0],
+    #     # buy_price_discount_target_profit_percent = [0],
+    #     hours_to_expirate = [0.5, 1, 2, 4, 6, 12]
+    # )
 
     # start_datetime = datetime(2024, 10, 21)
     # end_datetime = start_datetime + timedelta(hours=2)
     # end_datetime = start_datetime + timedelta(days=90)
-    # cerebro.addstrategy(
-    #     DefaultStrategy, 
-    #     target_profit=0.0025, 
-    #     buy_price_limit_target_profit_percent=0.5, 
-    #     buy_price_discount_target_profit_percent=0.5, 
-    #     hours_to_expirate=4
-    # )
+    cerebro.addstrategy(
+        DefaultStrategy, 
+        target_profit=0.01, 
+        # buy_price_limit_target_profit_percent=0.5, 
+        # buy_price_discount_target_profit_percent=0.5, 
+        hours_to_expirate=0.5
+    )
 
     start_datetime = datetime(2024, 10, 21)
-    # end_datetime = start_datetime + timedelta(hours=2)
+    # end_datetime = start_datetime + timedelta(hours=8)
     end_datetime = start_datetime + timedelta(days=90)
     candles = broker.get_klines(asset_symbol, start_time=start_datetime, end_time=end_datetime, interval='1m')
     df_candles = broker.candles_to_dataframe(candles)
@@ -57,16 +57,17 @@ def __main():
     cerebro.broker.set_cash(stake)
 
     # adicionando analyzers
-    # cerebro.addanalyzer(btanalyzers.SharpeRatio, _name = "sharpe", timeframe=TimeFrame.Days, riskfreerate=0.06)
-    # cerebro.addanalyzer(btanalyzers.DrawDown, _name = "drawdown")
-    # cerebro.addanalyzer(btanalyzers.Returns, _name = "returns", timeframe=TimeFrame.NoTimeFrame)
+    cerebro.addanalyzer(btanalyzers.SharpeRatio, _name = "sharpe", timeframe=TimeFrame.Days, riskfreerate=0.06)
+    cerebro.addanalyzer(btanalyzers.DrawDown, _name = "drawdown")
+    cerebro.addanalyzer(btanalyzers.Returns, _name = "returns", timeframe=TimeFrame.NoTimeFrame)
     cerebro.addanalyzer(a.ProfitReturns, _name = "profit")
 
     # Run over everything
-    results = cerebro.run(exactbars=True)
+    results = cerebro.run()
     
     # Resumo do desempenho    
-    print_opt_results(results)
+    print_results(cerebro, results)
+    # print_opt_results(results)
     
 def __init():
 
@@ -86,17 +87,17 @@ def __init():
 
 def print_opt_results(results):    
     par_list = [[x[0].params.target_profit, 
-             x[0].params.buy_price_limit_target_profit_percent,
-             x[0].params.buy_price_discount_target_profit_percent,
+            #  x[0].params.buy_price_limit_target_profit_percent,
+            #  x[0].params.buy_price_discount_target_profit_percent,
              x[0].params.hours_to_expirate,
              x[0].analyzers.profit.get_analysis()['total_profit'],
-            #  x[0].analyzers.sharpe.get_analysis()['sharperatio'],
-            #  x[0].analyzers.returns.get_analysis()['rtot'], 
-            #  x[0].analyzers.drawdown.get_analysis()['max']['drawdown']             
+             x[0].analyzers.sharpe.get_analysis()['sharperatio'],
+             x[0].analyzers.returns.get_analysis()['rtot'], 
+             x[0].analyzers.drawdown.get_analysis()['max']['drawdown']             
             ] for x in results]
         	
-    par_df = pd.DataFrame(par_list, columns = ['target_profit','bpl_perc', 'bpd_perc', 'hours_to_expirate','profit'])
-    print(par_df.sort_values(by=['profit'], ascending=False).head(20))
+    par_df = pd.DataFrame(par_list, columns = ['target_profit', 'hours_to_expirate','profit', 'sharp', 'return', 'dd'])
+    print(par_df.sort_values(by=['profit', 'sharp', 'return'], ascending=False).head(20))
 
 def print_results(cerebro, results):
     strategy = results[0]
