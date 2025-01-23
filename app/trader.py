@@ -43,7 +43,7 @@ def __main():
     cerebro.broker.set_cash(stake)
 
     # Run over everything
-    results = cerebro.run(preload=False)
+    results = cerebro.run()
     
     # Resumo do desempenho    
     print_results(cerebro, results)
