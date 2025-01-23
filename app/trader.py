@@ -33,6 +33,17 @@ def __main():
         hours_to_expirate = [1, 2, 4, 6, 12]
     )
 
+    # start_datetime = datetime(2024, 10, 21)
+    # end_datetime = start_datetime + timedelta(hours=2)
+    # end_datetime = start_datetime + timedelta(days=90)
+    # cerebro.addstrategy(
+    #     DefaultStrategy, 
+    #     target_profit=0.0025, 
+    #     buy_price_limit_target_profit_percent=0.5, 
+    #     buy_price_discount_target_profit_percent=0.5, 
+    #     hours_to_expirate=4
+    # )
+
     start_datetime = datetime(2024, 10, 21)
     end_datetime = start_datetime + timedelta(hours=2)
     # end_datetime = start_datetime + timedelta(days=90)
@@ -86,6 +97,34 @@ def print_opt_results(results):
         	
     par_df = pd.DataFrame(par_list, columns = ['target_profit','bpl_perc', 'bpd_perc', 'hours_to_expirate','profit'])
     print(par_df.sort_values(by=['profit'], ascending=False).head(10))
+
+def print_results(cerebro, results):
+    strategy = results[0]
+
+    results = {}
+
+    results.update({'general_header': '\n====== PERFORMANCE REPORT ======\n'})
+    results.update({'start_portfolio_value': f'START PORTFOLIO VALUE: {strategy.p.stake:.2f}\n'})
+    results.update({'cash': f'CASH: {cerebro.broker.cash:.2f}\n'})
+    results.update({'target_profit': f'TARGET PROFIT: {strategy.p.target_profit * 100}%\n'})
+    results.update({'position_size': f'POSITION SIZE: {strategy.position.size}\n'})
+    results.update({'position_price': f'POSITION PRICE: {strategy.position.price:.2f}\n'})
+    results.update({'buys_executed': f'BUYS EXECUTED: {strategy.executed_buy_orders_counter}\n'})
+    results.update({'sells_executed': f'SELLS EXECUTED (TOTAL TRADES): {strategy.executed_sell_orders_counter}\n'})
+    results.update({'starting_price': f'STARTING PRICE: {strategy.starting_price}\n'})    
+    results.update({'min_price': f'MIN PRICE: {strategy.min_price:.2f} ({((strategy.min_price - strategy.starting_price)/strategy.starting_price*100):.2f}%)\n'})    
+    results.update({'max_price': f'MAX PRICE: {strategy.max_price:.2f} ({((strategy.max_price - strategy.starting_price)/strategy.starting_price*100):.2f}%)\n'})
+    results.update({'total_profit': f'TOTAL PROFIT: {strategy.total_profit:.2f} ({(strategy.total_profit/strategy.p.stake*100):.2f}%)\n'})
+    results.update({'final_portfolio_value': f'FINAL PORTFOLIO VALUE: {cerebro.broker.getvalue():.2f}\n'})
+    results.update({'orders_header': f'******* OPEN ORDERS *******\n'})
+    results.update({'orders': f'{'\n------------------------\n'.join(map(str, cerebro.broker.get_orders_open()))}\n\n'})
+    
+    message = ''
+
+    for key, value in results.items():
+        message = message + value
+
+    logger.info(message)
 
 def setup_logging():
     config_file = pathlib.Path('logging.config.json')
