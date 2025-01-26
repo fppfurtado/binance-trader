@@ -1,8 +1,9 @@
-from backtrader import Strategy, Order, Sizer
+from backtrader import Strategy, Order, Sizer, num2date
 import analysis as a
 from datetime import datetime, timedelta
 import numpy as np
 import logging
+import backtrader as bt
 
 class DefaultStrategy(Strategy):
     logger = logging.getLogger('trader')
@@ -12,7 +13,7 @@ class DefaultStrategy(Strategy):
         ('target_profit', 0.01),
         ('buy_price_limit_target_profit_percent', 0),
         ('buy_price_discount_target_profit_percent', 0),
-        ('hours_to_expirate', 6)
+        ('hours_to_expire', 6)
     )
 
     def log(self, txt, dt=None, carriage_return=False):
@@ -20,10 +21,10 @@ class DefaultStrategy(Strategy):
         dt = dt or self.datas[0].datetime.datetime()
         if not carriage_return:
             # print('%s, %s' % (dt, txt))
-            self.logger.info('%s, %s' % (dt, txt))
+            self.logger.debug('%s, %s' % (dt, txt))
         else:
             # print('\r%s, %s' % (dt, txt))
-            self.logger.info('\r%s, %s' % (dt, txt))
+            self.logger.debug('\r%s, %s' % (dt, txt))
 
     def __init__(self):
         self.data = self.datas[0]
@@ -35,7 +36,10 @@ class DefaultStrategy(Strategy):
         self.total_profit = 0
         self.max_price = -1
         self.min_price = -1
-        
+        self.last_trade_date = None
+
+        # bt.indicators.ExponentialMovingAverage()
+
     def next(self):
         # preço inicial do dataset
         if len(self) == 1:
@@ -58,11 +62,11 @@ class DefaultStrategy(Strategy):
             
             buy_price_limit = self.max_price * (1 - self.p.target_profit * self.p.buy_price_limit_target_profit_percent)
             buy_price = min(current_price * (1 - self.p.target_profit * self.p.buy_price_discount_target_profit_percent), buy_price_limit)
-            buy_size = self.broker.cash/buy_price
+            buy_size = self.broker.cash/buy_price if buy_price > 0 else current_price
             order_value = buy_price * buy_size
 
             if order_value <= self.broker.cash:
-                order_expiration = timedelta(hours=self.p.hours_to_expirate)
+                order_expiration = timedelta(hours=self.p.hours_to_expire)
                 main_order = self.buy(exectype=Order.Limit, price=buy_price, size=buy_size,transmit=False, valid=order_expiration)
                 self.open_buy_order = main_order
 
@@ -70,6 +74,8 @@ class DefaultStrategy(Strategy):
                     position = main_order.price * main_order.size
                     sell_price = (position + (self.broker.cash * self.p.target_profit))/main_order.size
                     self.sell(parent=main_order, exectype=Order.Limit, price=sell_price, size=main_order.size, transmit=True, parent_price=main_order.price)
+
+                self.last_trade_date = num2date(self.data.datetime[0]).date()
                         
     def notify_order(self, order):
         #print(f'Ordem ref {order.ref}, Status {order.status}')
@@ -109,6 +115,10 @@ class DefaultStrategy(Strategy):
 
             case Order.Rejected:
                 self.log('ORDER REJECTED(%s)' % (order.ref))
+
+    def stop(self):
+        self.logger.info(f'Finalizando DefaultStrategy(stake = {self.p.stake}, target_profit = {self.p.target_profit}, bpl = {self.p.buy_price_limit_target_profit_percent}, bpd = {self.p.buy_price_discount_target_profit_percent}, hours_to_expire = {self.p.hours_to_expire}): ({self.last_trade_date}, {self.total_profit:.2f})')
+        
                 
     def has_buy_signal(self) -> bool:
         if a.is_bullish(self._get_candle(0)):
