@@ -12,6 +12,7 @@ import logging.config
 import json
 import pathlib
 import atexit
+import matplotlib
 
 logger = logging.getLogger('trader')
 asset_symbol: str = None
@@ -26,34 +27,35 @@ def __main():
     global broker
     # global asset_symbol
     # cerebro.addstrategy(DefaultStrategy, target_profit=(0.5 / 100))
-    cerebro.optstrategy(
-        DefaultStrategy,
-        target_profit = [0.0075, 0.01, 0.015, 0.025, 0.03],
-        buy_price_limit_target_profit_percent = [0, 0.5, 1],
-        buy_price_discount_target_profit_percent = [0, 0.5, 1],
-        hours_to_expirate = [0.5, 1, 2, 4, 6, 12]
-    )
+    # cerebro.optstrategy(
+    #     DefaultStrategy,
+    #     target_profit = [0.0025, 0.005, 0.01],
+    #     buy_price_limit_target_profit_percent = [0.5, 1, 1.5],
+    #     buy_price_discount_target_profit_percent = [1, 2, 3],
+    #     hours_to_expire = [0.5, 1, 2, 4]
+    # )
 
     # start_datetime = datetime(2024, 10, 21)
     # end_datetime = start_datetime + timedelta(hours=2)
     # end_datetime = start_datetime + timedelta(days=90)
-    # cerebro.addstrategy(
-    #     DefaultStrategy, 
-    #     target_profit=0.025, 
-    #     # buy_price_limit_target_profit_percent=0.5, 
-    #     # buy_price_discount_target_profit_percent=0.5, 
-    #     hours_to_expirate=0.5
-    # )
+    cerebro.addstrategy(
+        DefaultStrategy, 
+        target_profit=0.0025, 
+        buy_price_limit_target_profit_percent=0.5, 
+        buy_price_discount_target_profit_percent=2, 
+        hours_to_expire=4
+    )
     
     # candles = get_candles(
     #     asset_symbol=asset_symbol,
-    #     start_str='2024-10-21',
-    #     time_offset_days=1,
+    #     start_str='2024-1-1',
+    #     end_str='2024-4-20',
     #     timeframe='1m',
     #     save_csv=True
     # )
     # df_candles = candles_to_dataframe(candles)
-    df_candles = load_candles('data', asset_symbol)    
+    
+    df_candles = load_candles('data', asset_symbol, start_str='2024-1-1', end_str='2024-12-31')    
     
     data_feed = bt.feeds.PandasData(dataname=df_candles)
     cerebro.adddata(data_feed)
@@ -66,13 +68,17 @@ def __main():
     cerebro.addanalyzer(btanalyzers.DrawDown, _name = "drawdown")
     cerebro.addanalyzer(btanalyzers.Returns, _name = "returns", timeframe=TimeFrame.NoTimeFrame)
     cerebro.addanalyzer(a.ProfitReturns, _name = "profit")
+    cerebro.addanalyzer(a.TradeCounter, _name = "trades")
+    cerebro.addanalyzer(a.LastDate, _name = "date")
 
     # Run over everything
     results = cerebro.run()
     
     # Resumo do desempenho    
-    # print_results(cerebro, results)
-    print_opt_results(results)
+    print_results(cerebro, results)
+    # print_opt_results(results)
+
+    cerebro.plot()
     
 def __init():
 
@@ -103,7 +109,10 @@ def get_candles(asset_symbol: str, start_str: str, end_str: str = None, time_off
 
     return candles
 
-def load_candles(dir_name, asset_symbol):
+def load_candles(dir_name, asset_symbol, start_str, end_str):
+    start_datetime = datetime.strptime(start_str, '%Y-%m-%d')
+    end_datetime = datetime.strptime(end_str, '%Y-%m-%d')
+
     candles = []
     col_types = {
         'timestamp': 'str',
@@ -116,21 +125,27 @@ def load_candles(dir_name, asset_symbol):
     }
 
     # Iterar sobre todos os arquivos na pasta 'data'
-    for file_name in os.listdir(dir_name):
+    for file in os.listdir(dir_name):
         # Verificar se o arquivo é um CSV
-        if file_name.endswith('.csv'):
-            
-            # Carregar o arquivo CSV usando pandas
-            file_path = os.path.join(dir_name, file_name)
-            df = pd.read_csv(file_path, dtype=col_types)
+        if file.endswith('.csv'):
+            file_name = file.split('.')[0]
+            file_date = file_name.split('_')[-1]
+            file_datetime = datetime.strptime(file_date, '%Y-%m-%d')
+            if start_datetime <= file_datetime <= end_datetime:
+                logger.info(f'Carregando arquivo {file}')
+                
+                # Carregar o arquivo CSV usando pandas
+                file_path = os.path.join(dir_name, file)
+                df = pd.read_csv(file_path, dtype=col_types)
 
-            # Adicionar o DataFrame à lista de dados
-            candles.append(df)
+                # Adicionar o DataFrame à lista de dados
+                candles.append(df)
 
     # Concatenar todos os DataFrames na lista em um único DataFrame
     candles = pd.concat(candles)
     candles['timestamp'] = pd.to_datetime(candles['timestamp'])
     candles['close_time'] = pd.to_datetime(candles['close_time'])
+    candles = candles.sort_values(by='timestamp')
     candles.set_index('timestamp', inplace=True)
 
     return candles
@@ -168,15 +183,17 @@ def print_opt_results(results):
     par_list = [[x[0].params.target_profit, 
              x[0].params.buy_price_limit_target_profit_percent,
              x[0].params.buy_price_discount_target_profit_percent,
-             x[0].params.hours_to_expirate,
+             x[0].params.hours_to_expire,
              x[0].analyzers.profit.get_analysis()['total_profit'],
+             x[0].analyzers.date.get_analysis()['last_date'],
+             x[0].analyzers.trades.get_analysis()['total_trades'],
              x[0].analyzers.sharpe.get_analysis()['sharperatio'],
              x[0].analyzers.returns.get_analysis()['rtot'], 
              x[0].analyzers.drawdown.get_analysis()['max']['drawdown']             
             ] for x in results]
         	
-    par_df = pd.DataFrame(par_list, columns = ['target_profit', 'bpl', 'bpd', 'hours_to_expirate','profit', 'sharp', 'return', 'dd'])
-    print(par_df.sort_values(by=['profit', 'sharp', 'return'], ascending=False).head(20))
+    par_df = pd.DataFrame(par_list, columns = ['target_profit', 'bpl', 'bpd', 'hours_to_expire', 'profit (%)', 'last_date', 'trades', 'sharp', 'return', 'dd'])
+    logger.info(f'\n{par_df.sort_values(by=['profit (%)', 'last_date', 'trades', 'sharp'], ascending=False).head(30)}')
 
 def print_results(cerebro, results):
     strategy = results[0]
@@ -192,8 +209,8 @@ def print_results(cerebro, results):
     results.update({'buys_executed': f'BUYS EXECUTED: {strategy.executed_buy_orders_counter}\n'})
     results.update({'sells_executed': f'SELLS EXECUTED (TOTAL TRADES): {strategy.executed_sell_orders_counter}\n'})
     results.update({'starting_price': f'STARTING PRICE: {strategy.starting_price}\n'})    
-    results.update({'min_price': f'MIN PRICE: {strategy.min_price:.2f} ({((strategy.min_price - strategy.starting_price)/strategy.starting_price*100):.2f}%)\n'})    
-    results.update({'max_price': f'MAX PRICE: {strategy.max_price:.2f} ({((strategy.max_price - strategy.starting_price)/strategy.starting_price*100):.2f}%)\n'})
+    # results.update({'min_price': f'MIN PRICE: {strategy.min_price:.2f} ({((strategy.min_price - strategy.starting_price)/strategy.starting_price*100):.2f}%)\n'})    
+    # results.update({'max_price': f'MAX PRICE: {strategy.max_price:.2f} ({((strategy.max_price - strategy.starting_price)/strategy.starting_price*100):.2f}%)\n'})
     results.update({'total_profit': f'TOTAL PROFIT: {strategy.total_profit:.2f} ({(strategy.total_profit/strategy.p.stake*100):.2f}%)\n'})
     results.update({'final_portfolio_value': f'FINAL PORTFOLIO VALUE: {cerebro.broker.getvalue():.2f}\n'})
     results.update({'orders_header': f'******* OPEN ORDERS *******\n'})
